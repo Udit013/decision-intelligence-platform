@@ -1,0 +1,32 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+tsconfig.tsbuildinfo
+
+# debug
+npm-debug.log*
+
+# env files
+.env
+.env*.local
+
+# vercel
+.vercel
+
+# data (large datasets are downloaded, not committed)
+/data/*.csv
+/data/*.xlsx
+/data/*.zip

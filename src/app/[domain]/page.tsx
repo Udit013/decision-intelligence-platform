@@ -1,0 +1,22 @@
+import { createElement } from 'react'
+import { notFound } from 'next/navigation'
+import { getDomain } from '@/core/registry'
+import { resolvePage } from '@/domains/pages'
+import { Placeholder } from './Placeholder'
+
+const PHASE: Record<string, string> = {
+  market: 'Phase 3',
+  product: 'Phase 4',
+}
+
+export default async function DomainHome({ params }: { params: Promise<{ domain: string }> }) {
+  const { domain } = await params
+  const mod = getDomain(domain)
+  if (!mod) notFound()
+
+  const page = resolvePage(mod.id, '')
+  if (page) return createElement(page)
+
+  const home = mod.nav[0]
+  return <Placeholder title={home.label} tagline={mod.tagline} phase={PHASE[mod.id] ?? 'a later phase'} />
+}

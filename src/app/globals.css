@@ -1,0 +1,56 @@
+@import 'tailwindcss';
+
+/*
+ * Decision Intelligence Platform — unified "decision terminal" theme.
+ * One design system across all three domains; each domain only swaps its accent
+ * (operations=cyan, market=violet, product=lime) via the --accent variable set
+ * on the domain layout.
+ */
+
+@theme {
+  --color-bg: #0a0e16;
+  --color-surface: #11161f;
+  --color-surface-2: #161c27;
+  --color-border: #232a36;
+  --color-fg: #e7ecf3;
+  --color-muted: #8a94a6;
+
+  /* Domain accents */
+  --color-violet: #8b5cf6;
+  --color-lime: #a3e635;
+  --color-cyan: #22d3ee;
+
+  /* Semantic (reserved for meaning, shared across domains) */
+  --color-good: #34d399;
+  --color-warn: #fbbf24;
+  --color-bad: #f87171;
+  --color-info: #38bdf8;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, 'SF Mono', monospace;
+}
+
+:root {
+  /* Default accent; overridden per-domain on the domain layout wrapper. */
+  --accent: var(--color-cyan);
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle grid texture for the terminal aesthetic. */
+body {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
