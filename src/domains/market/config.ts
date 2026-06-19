@@ -24,9 +24,9 @@
 import { MARKET_COUNT } from './generator'
 
 export const MARKET_META = {
-  brand: 'Decision Intelligence',
+  brand: 'CoreSight IQ',
   reportTitle: 'Market — Expansion Boardroom Report',
-  accentRgb: [139, 92, 246] as [number, number, number],
+  accentRgb: [124, 58, 237] as [number, number, number],
   marketCount: MARKET_COUNT,
   demoNote: `Demo data: ${MARKET_COUNT} synthetic markets. All scores are modeled from editorial weights — no validated accuracy. (Old README claimed 121; that included a duplicate Pakistan, now removed.)`,
 }

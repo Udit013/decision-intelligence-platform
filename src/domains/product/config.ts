@@ -30,9 +30,9 @@
 import { USER_COUNT } from './generator'
 
 export const PRODUCT_META = {
-  brand: 'Decision Intelligence',
+  brand: 'CoreSight IQ',
   reportTitle: 'Product — Executive Report',
-  accentRgb: [163, 230, 53] as [number, number, number],
+  accentRgb: [77, 124, 15] as [number, number, number],
   userCount: USER_COUNT,
   demoNote: `Demo data: ${USER_COUNT} synthetic users (deterministic, in-memory). Retention, funnel, and adoption are MEASURED from the generated data; experiment stats use the shared core/stats A/B engine.`,
 }

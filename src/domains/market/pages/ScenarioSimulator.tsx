@@ -5,6 +5,7 @@ import { simulateExpansion, type ScenarioParams } from '../scoring'
 import type { Market, CompetitiveData } from '../types'
 import { usdFromThousands } from '../format'
 import { Chart } from '@/ui/charts/Chart'
+import { CHART, ACCENT } from '@/ui/charts/theme'
 import { Card, CardBody, CardHeader, CardTitle } from '@/ui/components/Card'
 import { Kpi, KpiGrid } from '@/ui/components/Kpi'
 
@@ -69,12 +70,12 @@ export function ScenarioSimulator({ markets }: { markets: SlimMarket[] }) {
                 height={300}
                 option={{
                   tooltip: { trigger: 'axis' },
-                  legend: { data: ['Monthly profit', 'Cumulative'], top: 0, textStyle: { color: '#8a94a6' } },
+                  legend: { data: ['Monthly profit', 'Cumulative'], top: 0, textStyle: { color: CHART.muted } },
                   xAxis: { type: 'category', data: result.projections.map((p) => `M${p.month}`) },
-                  yAxis: { type: 'value', splitLine: { lineStyle: { color: '#1a212c' } } },
+                  yAxis: { type: 'value', splitLine: { lineStyle: { color: CHART.grid } } },
                   series: [
-                    { name: 'Monthly profit', type: 'bar', data: result.projections.map((p) => p.profit), itemStyle: { color: '#8b5cf6' } },
-                    { name: 'Cumulative', type: 'line', data: result.projections.map((p) => p.cumulative), itemStyle: { color: '#22d3ee' }, smooth: true },
+                    { name: 'Monthly profit', type: 'bar', data: result.projections.map((p) => p.profit), itemStyle: { color: ACCENT.violet } },
+                    { name: 'Cumulative', type: 'line', data: result.projections.map((p) => p.cumulative), itemStyle: { color: ACCENT.cyan }, smooth: true },
                   ],
                 }}
               />

@@ -1,30 +1,30 @@
 @import 'tailwindcss';
 
 /*
- * Decision Intelligence Platform — unified "decision terminal" theme.
- * One design system across all three domains; each domain only swaps its accent
+ * CoreSight IQ — unified light design system.
+ * One palette across all three domains; each domain only swaps its accent
  * (operations=cyan, market=violet, product=lime) via the --accent variable set
  * on the domain layout.
  */
 
 @theme {
-  --color-bg: #0a0e16;
-  --color-surface: #11161f;
-  --color-surface-2: #161c27;
-  --color-border: #232a36;
-  --color-fg: #e7ecf3;
-  --color-muted: #8a94a6;
+  --color-bg: #f6f8fb;
+  --color-surface: #ffffff;
+  --color-surface-2: #f1f4f9;
+  --color-border: #e3e8ef;
+  --color-fg: #0f172a;
+  --color-muted: #5b6675;
 
-  /* Domain accents */
-  --color-violet: #8b5cf6;
-  --color-lime: #a3e635;
-  --color-cyan: #22d3ee;
+  /* Domain accents — tuned for contrast on a light background */
+  --color-violet: #7c3aed;
+  --color-lime: #4d7c0f;
+  --color-cyan: #0891b2;
 
   /* Semantic (reserved for meaning, shared across domains) */
-  --color-good: #34d399;
-  --color-warn: #fbbf24;
-  --color-bad: #f87171;
-  --color-info: #38bdf8;
+  --color-good: #16a34a;
+  --color-warn: #b45309;
+  --color-bad: #dc2626;
+  --color-info: #2563eb;
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, 'SF Mono', monospace;
@@ -43,12 +43,13 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Subtle grid texture for the terminal aesthetic. */
+/* Subtle dotted grid + soft top gradient for a clean, modern surface. */
 body {
   background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-  background-size: 48px 48px;
+    radial-gradient(circle at 1px 1px, rgba(15, 23, 42, 0.04) 1px, transparent 0),
+    linear-gradient(180deg, rgba(8, 145, 178, 0.04), transparent 320px);
+  background-size: 28px 28px, 100% 100%;
+  background-attachment: fixed;
 }
 
 .font-mono {

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { buildReportPdf, type ReportDoc } from './index'
 
 const doc: ReportDoc = {
-  brand: 'Decision Intelligence',
+  brand: 'CoreSight IQ',
   title: 'Operations — Executive Report',
   subtitle: 'Weekly summary of demand, inventory, and customer signals.',
   period: 'weekly',

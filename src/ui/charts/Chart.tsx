@@ -23,6 +23,7 @@ import {
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { EChartsOption } from 'echarts'
+import { CHART } from './theme'
 
 echarts.use([
   LineChart,
@@ -44,12 +45,14 @@ echarts.use([
 function withTheme(option: EChartsOption): EChartsOption {
   return {
     backgroundColor: 'transparent',
-    textStyle: { fontFamily: 'Inter, sans-serif', color: '#8a94a6' },
+    textStyle: { fontFamily: 'Inter, sans-serif', color: CHART.muted },
     grid: { left: 48, right: 24, top: 32, bottom: 40, containLabel: true, ...(option.grid as object) },
     tooltip: {
-      backgroundColor: '#11161f',
-      borderColor: '#232a36',
-      textStyle: { color: '#e7ecf3' },
+      backgroundColor: CHART.tooltipBg,
+      borderColor: CHART.tooltipBorder,
+      borderWidth: 1,
+      textStyle: { color: CHART.ink },
+      extraCssText: 'box-shadow: 0 4px 16px rgba(15,23,42,0.10); border-radius: 8px;',
       ...(option.tooltip as object),
     },
     ...option,

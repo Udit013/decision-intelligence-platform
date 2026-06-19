@@ -1,6 +1,7 @@
 'use client'
 
 import { Chart } from '@/ui/charts/Chart'
+import { CHART, ACCENT, ACCENT_FILL } from '@/ui/charts/theme'
 import type { ForecastPoint } from '@/core/forecast'
 
 /** Actuals + forecast line with a shaded confidence band. */
@@ -16,15 +17,15 @@ export function ForecastChart({ series }: { series: ForecastPoint[] }) {
     <Chart
       height={360}
       option={{
-        legend: { data: ['Actual', 'Forecast'], textStyle: { color: '#8a94a6' }, top: 0 },
+        legend: { data: ['Actual', 'Forecast'], textStyle: { color: CHART.muted }, top: 0 },
         tooltip: { trigger: 'axis' },
-        xAxis: { type: 'category', data: dates, axisLine: { lineStyle: { color: '#232a36' } } },
-        yAxis: { type: 'value', splitLine: { lineStyle: { color: '#1a212c' } } },
+        xAxis: { type: 'category', data: dates, axisLine: { lineStyle: { color: CHART.axis } } },
+        yAxis: { type: 'value', splitLine: { lineStyle: { color: CHART.grid } } },
         series: [
           { name: 'lower', type: 'line', data: lower, lineStyle: { opacity: 0 }, stack: 'band', symbol: 'none', silent: true },
-          { name: 'band', type: 'line', data: range, lineStyle: { opacity: 0 }, areaStyle: { color: 'rgba(34,211,238,0.12)' }, stack: 'band', symbol: 'none', silent: true },
-          { name: 'Actual', type: 'line', data: actual, showSymbol: false, lineStyle: { width: 2, color: '#e7ecf3' }, connectNulls: false },
-          { name: 'Forecast', type: 'line', data: fcast, showSymbol: false, lineStyle: { width: 2, color: '#22d3ee', type: 'dashed' } },
+          { name: 'band', type: 'line', data: range, lineStyle: { opacity: 0 }, areaStyle: { color: ACCENT_FILL.cyan }, stack: 'band', symbol: 'none', silent: true },
+          { name: 'Actual', type: 'line', data: actual, showSymbol: false, lineStyle: { width: 2, color: CHART.ink }, connectNulls: false },
+          { name: 'Forecast', type: 'line', data: fcast, showSymbol: false, lineStyle: { width: 2, color: ACCENT.cyan, type: 'dashed' } },
         ],
       }}
     />

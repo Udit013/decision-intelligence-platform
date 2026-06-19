@@ -6,9 +6,9 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'sw
 const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains', display: 'swap' })
 
 export const metadata: Metadata = {
-  title: 'Decision Intelligence Platform',
+  title: 'CoreSight IQ — Decision Intelligence Platform',
   description:
-    'One engine, three domains: operations, market expansion, and product. Data → insight → ranked, confidence-scored decisions → executive report.',
+    'CoreSight IQ: one analytics engine, three domains — operations, market expansion, and product. Data → insight → ranked, confidence-scored decisions → executive report.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,6 +1,7 @@
 'use client'
 
 import { Chart } from '@/ui/charts/Chart'
+import { CHART, ACCENT, ACCENT_FILL } from '@/ui/charts/theme'
 import type { CohortRow } from '@/core/cohort'
 
 export function FunnelChart({ steps }: { steps: { step: string; users: number }[] }) {
@@ -10,9 +11,9 @@ export function FunnelChart({ steps }: { steps: { step: string; users: number }[
       option={{
         grid: { left: 120 },
         tooltip: { trigger: 'axis' },
-        xAxis: { type: 'value', splitLine: { lineStyle: { color: '#1a212c' } } },
-        yAxis: { type: 'category', data: [...steps].reverse().map((s) => s.step), axisLine: { lineStyle: { color: '#232a36' } } },
-        series: [{ type: 'bar', data: [...steps].reverse().map((s) => s.users), itemStyle: { color: '#a3e635', borderRadius: [0, 4, 4, 0] } }],
+        xAxis: { type: 'value', splitLine: { lineStyle: { color: CHART.grid } } },
+        yAxis: { type: 'category', data: [...steps].reverse().map((s) => s.step), axisLine: { lineStyle: { color: CHART.axis } } },
+        series: [{ type: 'bar', data: [...steps].reverse().map((s) => s.users), itemStyle: { color: ACCENT.lime, borderRadius: [0, 4, 4, 0] } }],
       }}
     />
   )
@@ -25,8 +26,8 @@ export function RetentionCurve({ pooled }: { pooled: { offset: number; ratePct: 
       option={{
         tooltip: { trigger: 'axis', valueFormatter: (v: unknown) => `${v}%` },
         xAxis: { type: 'category', data: pooled.map((p) => `D${p.offset}`) },
-        yAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' }, splitLine: { lineStyle: { color: '#1a212c' } } },
-        series: [{ type: 'line', data: pooled.map((p) => p.ratePct), smooth: true, areaStyle: { color: 'rgba(163,230,53,0.12)' }, lineStyle: { color: '#a3e635', width: 2 }, symbolSize: 6 }],
+        yAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' }, splitLine: { lineStyle: { color: CHART.grid } } },
+        series: [{ type: 'line', data: pooled.map((p) => p.ratePct), smooth: true, areaStyle: { color: ACCENT_FILL.lime }, lineStyle: { color: ACCENT.lime, width: 2 }, symbolSize: 6 }],
       }}
     />
   )
@@ -49,8 +50,8 @@ export function CohortHeatmap({ matrix, offsets }: { matrix: CohortRow[]; offset
         tooltip: { position: 'top', formatter: (p: unknown) => { const d = (p as { value: [number, number, number] }).value; return `${rows[d[1]].cohortKey} · D${offsets[d[0]]}: ${d[2]}%` } },
         xAxis: { type: 'category', data: offsets.map((o) => `D${o}`), splitArea: { show: true } },
         yAxis: { type: 'category', data: rows.map((r) => r.cohortKey), splitArea: { show: true } },
-        visualMap: { min: 0, max: 100, calculable: true, orient: 'horizontal', left: 'center', bottom: 0, inRange: { color: ['#161c27', '#3f6212', '#a3e635'] }, textStyle: { color: '#8a94a6' } },
-        series: [{ type: 'heatmap', data, label: { show: true, formatter: (p: unknown) => `${(p as { value: [number, number, number] }).value[2]}`, color: '#e7ecf3', fontSize: 10 } }],
+        visualMap: { min: 0, max: 100, calculable: true, orient: 'horizontal', left: 'center', bottom: 0, inRange: { color: ['#f1f4f9', '#bef264', '#4d7c0f'] }, textStyle: { color: CHART.muted } },
+        series: [{ type: 'heatmap', data, label: { show: true, formatter: (p: unknown) => `${(p as { value: [number, number, number] }).value[2]}`, color: CHART.ink, fontSize: 10 } }],
       }}
     />
   )

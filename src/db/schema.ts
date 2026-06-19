@@ -1,5 +1,5 @@
 /**
- * Single unified Drizzle schema for the Decision Intelligence Platform.
+ * Single unified Drizzle schema for CoreSight IQ.
  *
  * Tables are namespaced per domain by table-name prefix (`operations_`, `market_`,
  * `product_`) so all three domains share one Postgres database and one migration

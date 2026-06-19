@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { getDomain } from '@/core/registry'
 import { DomainSwitcher } from '@/ui/components/DomainSwitcher'
 import { ProvenanceBadge } from '@/ui/components/Badge'
+import { Logo } from '@/ui/components/Logo'
 import { DomainNav } from './DomainNav'
 
 const ACCENT_HEX = {
@@ -27,8 +28,8 @@ export default async function DomainLayout({
     <div style={{ ['--accent' as string]: ACCENT_HEX[mod.accent] }}>
       <header className="sticky top-0 z-40 border-b border-border bg-bg/80 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-6 py-3">
-          <Link href="/" className="font-mono text-xs uppercase tracking-widest text-muted hover:text-fg">
-            DIP
+          <Link href="/" className="hover:opacity-80">
+            <Logo />
           </Link>
           <span className="text-border">/</span>
           <DomainSwitcher current={mod} />

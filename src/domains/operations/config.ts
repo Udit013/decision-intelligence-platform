@@ -41,9 +41,9 @@ import { COST_ASSUMPTION_NOTE } from './assumptions'
 
 /** Accent + provenance shown by the shell (mirrors the registry). */
 export const OPERATIONS_META = {
-  brand: 'Decision Intelligence',
+  brand: 'CoreSight IQ',
   reportTitle: 'Operations — Executive Report',
-  accentRgb: [34, 211, 238] as [number, number, number],
+  accentRgb: [8, 145, 178] as [number, number, number],
   dataNote: 'Real data: UCI Online Retail II (2009–2011). ' + COST_ASSUMPTION_NOTE,
 }
 
