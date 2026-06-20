@@ -4,6 +4,10 @@ import { getDomain } from '@/core/registry'
 import { resolvePage } from '@/domains/pages'
 import { Placeholder } from './Placeholder'
 
+// Operations reads ~1M rows from Postgres per request; give the serverless
+// function headroom over the 10s default so a cold start can't time out.
+export const maxDuration = 30
+
 const PHASE: Record<string, string> = {
   market: 'Phase 3',
   product: 'Phase 4',

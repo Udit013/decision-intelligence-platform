@@ -6,30 +6,33 @@
  */
 import { clamp } from '@/core/stats'
 import { forecast } from '@/core/forecast'
-import { getKpis, getRevenueSeries, getCustomerRows, getCategoryComparison, getTopProducts } from './data'
+import { getKpis, getRevenueSeries, getCustomerRows, getCategoryComparison } from './data'
 import { computeCustomers } from './customers'
 import { assembleRootCause } from './rootcause'
 import { buildOperationsDecisions } from './decisions'
 
 export async function buildSnapshot() {
   try {
-    const kpis = await getKpis()
-    if (!kpis.orders) return null // unseeded
+    // The four queries are independent — run them in parallel so the Decision
+    // Center is one round-trip's worth of latency, not five sequential ones.
+    // (This was ~5.6s sequential and risked the serverless timeout on cold start,
+    // which made buildSnapshot's catch fire and show a misleading "no data" state.)
+    const [kpis, rev, custRows, cats] = await Promise.all([
+      getKpis(),
+      getRevenueSeries('week'),
+      getCustomerRows(),
+      getCategoryComparison(90),
+    ])
+    if (!kpis.orders) return null // genuinely unseeded
 
-    const { dates, values } = await getRevenueSeries('week')
     const horizon = 8
-    const fc = forecast(values, dates, 'week', horizon)
+    const fc = forecast(rev.values, rev.dates, 'week', horizon)
     const projectedTotal = fc.series.filter((p) => p.actual === null).reduce((s, p) => s + (p.forecast ?? 0), 0)
     const backtestAccuracy = fc.backtest ? clamp(1 - fc.backtest.mape / 100, 0, 1) : 0.3
 
-    const custRows = await getCustomerRows()
     const { summary } = computeCustomers(custRows, kpis.observedDays)
-
-    const cats = await getCategoryComparison(90)
     const rc = assembleRootCause({ metricLabel: 'Revenue', categories: cats })
-
     const returns = { value: kpis.returnsValue, ratePct: kpis.returnsRatePct }
-    const [topProducts, bottomProducts] = await Promise.all([getTopProducts(5), getTopProducts(5, true)])
 
     const decisions = buildOperationsDecisions({
       forecast: { projectedTotal, horizonLabel: `next ${horizon} weeks`, trendPerStep: fc.trendPerStep, backtestAccuracy, model: fc.model },
@@ -38,7 +41,7 @@ export async function buildSnapshot() {
       rootCause: rc,
     })
 
-    return { kpis, fc, projectedTotal, horizon, backtestAccuracy, customers: summary, rootCause: rc, returns, decisions, topProducts, bottomProducts }
+    return { kpis, fc, projectedTotal, horizon, backtestAccuracy, customers: summary, rootCause: rc, returns, decisions }
   } catch {
     return null
   }

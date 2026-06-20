@@ -30,8 +30,8 @@ export interface OpsKpis {
 
 export async function getKpis(): Promise<OpsKpis> {
   const db = getDb()
-  const r = rowsOf(
-    await db.execute(sql`
+  const [mainRes, custRes] = await Promise.all([
+    db.execute(sql`
       SELECT
         COALESCE(SUM(CASE WHEN quantity > 0 AND unit_price > 0 THEN line_revenue END), 0) AS revenue,
         COUNT(DISTINCT CASE WHEN quantity > 0 AND unit_price > 0 THEN invoice END) AS orders,
@@ -40,8 +40,10 @@ export async function getKpis(): Promise<OpsKpis> {
         COALESCE(SUM(CASE WHEN line_revenue < 0 OR quantity < 0 THEN ABS(line_revenue) END), 0) AS returns_value
       FROM operations_invoice_lines
     `),
-  )[0]
-  const custRow = rowsOf(await db.execute(sql`SELECT COUNT(*)::int AS c FROM operations_customers`))[0]
+    db.execute(sql`SELECT COUNT(*)::int AS c FROM operations_customers`),
+  ])
+  const r = rowsOf(mainRes)[0]
+  const custRow = rowsOf(custRes)[0]
   const revenue = num(r.revenue)
   const orders = num(r.orders)
   const returnsValue = num(r.returns_value)
@@ -79,24 +81,22 @@ export async function getRevenueSeries(grain: Grain = 'week'): Promise<{ dates: 
 export async function getCustomerRows() {
   const r = rowsOf(
     await getDb().execute(sql`
-      WITH agg AS (
-        SELECT l.invoice, i.customer_id, i.country, l.invoice_date, l.line_revenue, l.quantity, l.unit_price
-        FROM operations_invoice_lines l
-        JOIN operations_invoices i ON i.invoice = l.invoice
-        WHERE i.customer_id IS NOT NULL AND l.quantity > 0 AND l.unit_price > 0
-      )
-      SELECT customer_id,
-             MAX(country) AS country,
-             (MAX((SELECT MAX(invoice_date) FROM agg)) - MAX(invoice_date)) AS recency_interval,
-             COUNT(DISTINCT invoice) AS frequency,
-             ROUND(SUM(line_revenue)::numeric, 2) AS monetary
-      FROM agg GROUP BY customer_id
+      WITH maxd AS (SELECT MAX(invoice_date) AS m FROM operations_invoice_lines)
+      SELECT i.customer_id,
+             MAX(i.country) AS country,
+             EXTRACT(DAY FROM ((SELECT m FROM maxd) - MAX(l.invoice_date))) AS recency_days,
+             COUNT(DISTINCT l.invoice) AS frequency,
+             ROUND(SUM(l.line_revenue)::numeric, 2) AS monetary
+      FROM operations_invoice_lines l
+      JOIN operations_invoices i ON i.invoice = l.invoice
+      WHERE i.customer_id IS NOT NULL AND l.quantity > 0 AND l.unit_price > 0
+      GROUP BY i.customer_id
     `),
   )
   return r.map((x) => ({
     customerId: String(x.customer_id),
     country: x.country ? String(x.country) : null,
-    recency: Math.max(0, Math.round(num((x.recency_interval as { days?: number })?.days ?? x.recency_interval))),
+    recency: Math.max(0, Math.round(num(x.recency_days))),
     frequency: num(x.frequency),
     monetary: num(x.monetary),
   }))
