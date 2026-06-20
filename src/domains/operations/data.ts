@@ -4,8 +4,15 @@
  * one source of truth. All aggregates use clean sale lines (quantity > 0, price > 0,
  * non-return) except the returns metric, which intentionally reads credit notes.
  */
+import { unstable_cache } from 'next/cache'
 import { sql } from 'drizzle-orm'
 import { getDb } from '@/db'
+
+// The Online Retail II dataset is static once seeded, so query results are cached
+// across requests (revalidated hourly). First load pays the ~4s; every load after
+// is served from the data cache — keeping the Decision Center and advisor snappy.
+// Bump the revalidate window or call revalidateTag('operations') after a re-ETL.
+const CACHE = { revalidate: 3600, tags: ['operations'] }
 
 export type Grain = 'day' | 'week' | 'month'
 const GRAIN_UNIT: Record<Grain, string> = { day: 'day', week: 'week', month: 'month' }
@@ -28,7 +35,7 @@ export interface OpsKpis {
   observedDays: number
 }
 
-export async function getKpis(): Promise<OpsKpis> {
+async function getKpisImpl(): Promise<OpsKpis> {
   const db = getDb()
   const [mainRes, custRes] = await Promise.all([
     db.execute(sql`
@@ -64,7 +71,7 @@ export async function getKpis(): Promise<OpsKpis> {
 }
 
 /** Net revenue time series at the requested grain (clean sale lines only). */
-export async function getRevenueSeries(grain: Grain = 'week'): Promise<{ dates: string[]; values: number[] }> {
+async function getRevenueSeriesImpl(grain: Grain = 'week'): Promise<{ dates: string[]; values: number[] }> {
   const unit = GRAIN_UNIT[grain]
   const r = rowsOf(
     await getDb().execute(sql`
@@ -78,7 +85,7 @@ export async function getRevenueSeries(grain: Grain = 'week'): Promise<{ dates: 
   return { dates: r.map((x) => String(x.d)), values: r.map((x) => Math.round(num(x.revenue))) }
 }
 
-export async function getCustomerRows() {
+async function getCustomerRowsImpl() {
   const r = rowsOf(
     await getDb().execute(sql`
       WITH maxd AS (SELECT MAX(invoice_date) AS m FROM operations_invoice_lines)
@@ -103,7 +110,7 @@ export async function getCustomerRows() {
 }
 
 /** Per-product demand stats for the inventory/pricing engines (top N by revenue). */
-export async function getDemandRows(limit = 200) {
+async function getDemandRowsImpl(limit = 200) {
   const r = rowsOf(
     await getDb().execute(sql`
       WITH daily AS (
@@ -140,7 +147,7 @@ export async function getDemandRows(limit = 200) {
 }
 
 /** Category revenue for the last `windowDays` vs the prior `windowDays` (root cause). */
-export async function getCategoryComparison(windowDays = 90) {
+async function getCategoryComparisonImpl(windowDays = 90) {
   const r = rowsOf(
     await getDb().execute(sql`
       WITH bounds AS (SELECT MAX(invoice_date) AS maxd FROM operations_invoice_lines)
@@ -157,7 +164,7 @@ export async function getCategoryComparison(windowDays = 90) {
   return r.map((x) => ({ name: String(x.category ?? 'Other'), current: num(x.current), prior: num(x.prior) }))
 }
 
-export async function getTopProducts(limit = 10, ascending = false) {
+async function getTopProductsImpl(limit = 10, ascending = false) {
   const r = rowsOf(
     await getDb().execute(sql`
       SELECT p.description, ROUND(SUM(l.line_revenue)::numeric, 2) AS revenue
@@ -171,3 +178,15 @@ export async function getTopProducts(limit = 10, ascending = false) {
   )
   return r.map((x) => ({ name: x.description ? String(x.description) : 'Unknown', revenue: num(x.revenue) }))
 }
+
+/* ── Cached exports ──────────────────────────────────────────────────────────
+ * Every consumer (Decision Center, Reports, Advisor API, sub-pages) imports these
+ * names; wrapping the impls in unstable_cache memoizes the expensive queries
+ * across requests. Arguments are part of the cache key, so each grain / window /
+ * limit caches independently. */
+export const getKpis = unstable_cache(getKpisImpl, ['ops:kpis'], CACHE)
+export const getRevenueSeries = unstable_cache(getRevenueSeriesImpl, ['ops:revenue-series'], CACHE)
+export const getCustomerRows = unstable_cache(getCustomerRowsImpl, ['ops:customers'], CACHE)
+export const getDemandRows = unstable_cache(getDemandRowsImpl, ['ops:demand'], CACHE)
+export const getCategoryComparison = unstable_cache(getCategoryComparisonImpl, ['ops:category-cmp'], CACHE)
+export const getTopProducts = unstable_cache(getTopProductsImpl, ['ops:top-products'], CACHE)
