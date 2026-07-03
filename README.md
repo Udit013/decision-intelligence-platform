@@ -15,11 +15,10 @@ shared analytics engine. Every domain follows the same pipeline:
 
 ## The architecture story
 
-I had built three separate full-stack apps —
-[productlab](https://github.com/Udit013/productlab) (product analytics),
-[retail-analytics-platform](https://github.com/Udit013/retail-analytics-platform)
-(retail operations), and [geostrategy](https://github.com/Udit013/geostrategy)
-(market expansion) — and noticed I had written the **same pipeline three times
+I had built three separate full-stack apps — a product-analytics platform
+(*ProductLab*), a retail-operations platform (*RetailNexa*), and a
+market-expansion platform (*GeoStrategy*), since retired in favor of this merge —
+and noticed I had written the **same pipeline three times
 with different nouns**: ingest domain data → score it on multiple criteria →
 synthesize ranked, confidence-scored recommendations → export an executive PDF →
 answer questions with a local-AI advisor. The duplication was structural, not
