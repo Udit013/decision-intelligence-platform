@@ -21,5 +21,7 @@ export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHead
 }
 
 export function CardBody({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('px-5 py-4', className)} {...props} />
+  // overflow-x-auto lets wide data tables scroll horizontally on small screens
+  // instead of breaking the page layout.
+  return <div className={cn('overflow-x-auto px-5 py-4', className)} {...props} />
 }

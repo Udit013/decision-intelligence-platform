@@ -45,8 +45,9 @@ export default async function DomainLayout({
         </div>
       </header>
 
-      <div className="mx-auto flex max-w-7xl gap-8 px-6 py-8">
-        <aside className="w-52 shrink-0">
+      {/* Sidebar on lg+; horizontal scrollable nav bar on mobile. */}
+      <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 sm:px-6 lg:flex-row lg:gap-8 lg:py-8">
+        <aside className="w-full shrink-0 lg:w-52">
           <DomainNav domainId={mod.id} items={mod.nav} />
         </aside>
         <main id="main" className="min-w-0 flex-1">{children}</main>

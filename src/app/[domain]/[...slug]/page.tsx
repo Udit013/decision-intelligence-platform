@@ -8,6 +8,18 @@ import { Placeholder } from '../Placeholder'
 // function headroom over the 10s default so a cold start can't time out.
 export const maxDuration = 30
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ domain: string; slug: string[] }>
+}) {
+  const { domain, slug } = await params
+  const mod = getDomain(domain)
+  const navItem = mod?.nav.find((n) => n.slug === slug[0])
+  if (!mod || !navItem) return {}
+  return { title: `${navItem.label} · ${mod.label} · CoreSight IQ`, description: mod.tagline }
+}
+
 const PHASE: Record<string, string> = {
   market: 'Phase 3',
   product: 'Phase 4',

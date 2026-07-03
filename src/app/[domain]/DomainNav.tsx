@@ -10,7 +10,11 @@ export function DomainNav({ domainId, items }: { domainId: string; items: Domain
   const base = `/${domainId}`
 
   return (
-    <nav aria-label="Module pages" className="flex flex-col gap-0.5">
+    // Horizontal scroll strip on mobile, vertical rail on lg+.
+    <nav
+      aria-label="Module pages"
+      className="flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:gap-0.5 lg:overflow-visible lg:pb-0"
+    >
       {items.map((item) => {
         const href = item.slug ? `${base}/${item.slug}` : base
         const active = item.slug ? pathname === href : pathname === base
@@ -20,10 +24,10 @@ export function DomainNav({ domainId, items }: { domainId: string; items: Domain
             href={href}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'rounded-md px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface hover:text-fg',
-              active && 'bg-surface font-medium text-fg',
+              'whitespace-nowrap rounded-md border-b-2 border-l-0 border-transparent px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface hover:text-fg lg:border-b-0 lg:border-l-2',
+              // Accent underline on mobile, accent left-rail on desktop.
+              active && 'border-[color:var(--accent)] bg-surface font-medium text-fg',
             )}
-            style={active ? { boxShadow: 'inset 2px 0 0 var(--accent)' } : undefined}
           >
             {item.label}
           </Link>
