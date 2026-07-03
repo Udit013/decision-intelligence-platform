@@ -32,12 +32,36 @@ async function chunkInsert<T>(rows: T[], size: number, fn: (batch: T[]) => Promi
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL not set (see .env.example).')
 
+  const db = getDb()
+
+  // ── Idempotency guard ─────────────────────────────────────────────────────
+  // Dimension tables upsert on natural keys, but invoice_lines have random-UUID
+  // PKs — a plain re-run would silently DOUBLE every line and every metric.
+  // Refuse to seed over existing data unless --force, which wipes and reloads.
+  const { sql } = await import('drizzle-orm')
+  const countRes = (await db.execute(
+    sql`SELECT COUNT(*)::int AS c FROM operations_invoice_lines`,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  )) as any
+  const existing = Number((Array.isArray(countRes) ? countRes[0] : countRes.rows?.[0])?.c ?? 0)
+  if (existing > 0) {
+    if (!process.argv.includes('--force')) {
+      console.error(
+        `\n✗ operations_invoice_lines already has ${existing.toLocaleString()} rows.` +
+          `\n  Re-running would duplicate every metric. To wipe and reload, run with --force.\n`,
+      )
+      process.exit(1)
+    }
+    console.log(`--force: truncating existing operations data (${existing.toLocaleString()} lines)...`)
+    await db.execute(
+      sql`TRUNCATE operations_invoice_lines, operations_invoices, operations_customers, operations_products`,
+    )
+  }
+
   console.log('Loading workbook...')
   const rows = loadRetailRows()
   const q = profile(rows)
   printQuality(q) // ← PRE-SEED visibility
-
-  const db = getDb()
 
   // ── Dimensions ──
   const customers = new Map<string, { country: string | null; first: Date; last: Date }>()
