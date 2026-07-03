@@ -79,15 +79,31 @@ on synthetic data lead with a clear banner.
 
 ### Adding / refreshing data
 
-- **Operations (your own retail data):** map your transactions to the
-  `operations_*` schema and run the ETL (below). The ETL prints a
-  **data-quality report before it writes anything**, so you can see exactly what
-  is being loaded. Margin/profit are estimated (the source has no cost) — see
-  [`assumptions.ts`](src/domains/operations/assumptions.ts).
-- **Market / Product:** data is generated deterministically in-memory. Adjust
-  the generators ([market](src/domains/market/generator.ts),
-  [product](src/domains/product/generator.ts)) — e.g. user count, seed, market
-  list — and the whole module (scores, funnels, retention) recomputes.
+**In-app — the Data Manager (`/data`).** Every module has an **Upload / Manage
+Data** button in its header, and shows its **active dataset** above the content.
+The Data Manager is a shared workspace: upload once (drag-and-drop, multiple
+files, per-file progress and validation) and every module sees the file by
+default, or scope it to one module. Files can be previewed, renamed, replaced,
+reprocessed, and deleted.
+
+- **Formats:** CSV, XLSX, JSON (parsed into columns/rows, previewable),
+  TXT (stored with text preview), PDF/DOCX (stored as reference documents).
+  Max **4 MB** per file — the UI states exactly how each format is processed.
+- **Operations ingest:** a tabular file with order lines (invoice, SKU,
+  quantity, price, date — headers auto-detected, e.g. `Order ID`/`InvoiceNo`)
+  can be loaded into the Operations analytics with one click (≤25k rows in-app;
+  bigger loads via the CLI ETL). Ingest is guarded against double-loading, and
+  the analytics caches refresh immediately.
+
+**CLI — bulk loads.** For the full ~1M-row dataset (or your own large exports),
+run the ETL below; it prints a **data-quality report before it writes anything**.
+Margin/profit remain estimates (see
+[`assumptions.ts`](src/domains/operations/assumptions.ts)).
+
+**Market / Product generators:** these modules run on deterministic in-memory
+engines. Adjust the generators ([market](src/domains/market/generator.ts),
+[product](src/domains/product/generator.ts)) and the whole module recomputes;
+workspace files scoped to them are stored and previewable.
 
 ---
 

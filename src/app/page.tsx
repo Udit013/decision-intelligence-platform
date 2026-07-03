@@ -119,7 +119,13 @@ export default function Home() {
                   </CardBody>
                 </Card>
               ))}
-              <p className="text-xs text-muted">Full ETL & schema details are in the project <a className="text-[var(--color-cyan)] hover:underline" href="https://github.com/Udit013/decision-intelligence-platform#setup">README</a>.</p>
+              <Link
+                href="/data"
+                className="inline-flex items-center gap-2 rounded-md border border-[var(--color-cyan)]/40 bg-[var(--color-cyan)]/10 px-4 py-2 text-sm font-semibold text-[var(--color-cyan)] transition-colors hover:bg-[var(--color-cyan)]/20"
+              >
+                <Upload className="h-4 w-4" /> Open the Data Manager
+              </Link>
+              <p className="text-xs text-muted">Upload CSV/XLSX/JSON/TXT/PDF/DOCX once — shared across all modules. Full ETL & schema details in the <a className="text-[var(--color-cyan)] hover:underline" href="https://github.com/Udit013/decision-intelligence-platform#setup">README</a>.</p>
             </div>
           </div>
         </section>

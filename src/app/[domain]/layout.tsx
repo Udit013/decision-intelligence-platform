@@ -1,9 +1,12 @@
+import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { UploadCloud } from 'lucide-react'
 import { getDomain } from '@/core/registry'
 import { DomainSwitcher } from '@/ui/components/DomainSwitcher'
 import { ProvenanceBadge } from '@/ui/components/Badge'
 import { Logo } from '@/ui/components/Logo'
+import { DatasetStatus } from '@/ui/components/DatasetStatus'
 import { DomainNav } from './DomainNav'
 
 const ACCENT_HEX = {
@@ -39,7 +42,15 @@ export default async function DomainLayout({
           </Link>
           <span className="text-border">/</span>
           <DomainSwitcher current={mod} />
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-3">
+            <Link
+              href="/data"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--accent)]/20"
+            >
+              <UploadCloud className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Upload / Manage Data</span>
+              <span className="sm:hidden">Data</span>
+            </Link>
             <ProvenanceBadge provenance={mod.provenance} source={mod.dataSource} />
           </div>
         </div>
@@ -50,7 +61,15 @@ export default async function DomainLayout({
         <aside className="w-full shrink-0 lg:w-52">
           <DomainNav domainId={mod.id} items={mod.nav} />
         </aside>
-        <main id="main" className="min-w-0 flex-1">{children}</main>
+        <main id="main" className="min-w-0 flex-1">
+          {/* Streams in after the page; fails soft without a DB. */}
+          <Suspense fallback={null}>
+            <div className="mb-4">
+              <DatasetStatus domain={mod.id} />
+            </div>
+          </Suspense>
+          {children}
+        </main>
       </div>
     </div>
   )

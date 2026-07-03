@@ -1,3 +1,5 @@
+import Link from 'next/link'
+import { UploadCloud } from 'lucide-react'
 import { Card, CardBody } from './Card'
 import { cn } from '@/ui/cn'
 
@@ -44,11 +46,21 @@ export function EmptyState() {
   return (
     <Card>
       <CardBody className="py-12 text-center">
-        <p className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">No data</p>
-        <p className="mt-2 text-sm text-muted">
-          The operations database is empty or unreachable. Set <code className="font-mono">DATABASE_URL</code>, then run:
+        <p className="font-mono text-xs uppercase tracking-widest text-[var(--accent)]">No data yet</p>
+        <p className="mx-auto mt-2 max-w-md text-sm text-muted">
+          This module has no data loaded. Upload a transactions file (CSV/XLSX/JSON with invoice, SKU,
+          quantity, price, and date columns) and it powers these analytics directly.
         </p>
-        <pre className="mx-auto mt-3 w-fit rounded-md border border-border bg-surface-2 px-4 py-2 text-left font-mono text-xs text-fg">
+        <Link
+          href="/data"
+          className="mt-5 inline-flex items-center gap-2 rounded-md border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-5 py-2.5 text-sm font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--accent)]/20"
+        >
+          <UploadCloud className="h-4 w-4" /> Upload Data
+        </Link>
+        <p className="mt-5 text-xs text-muted">
+          Or load the full UCI Online Retail II dataset (~1M rows) from the CLI:
+        </p>
+        <pre className="mx-auto mt-2 w-fit rounded-md border border-border bg-surface-2 px-4 py-2 text-left font-mono text-xs text-fg">
           npm run db:push{'\n'}npx tsx --max-old-space-size=4096 scripts/etl-operations.ts
         </pre>
       </CardBody>

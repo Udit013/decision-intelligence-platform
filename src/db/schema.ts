@@ -21,6 +21,42 @@ import {
 } from 'drizzle-orm/pg-core'
 
 /* ════════════════════════════════════════════════════════════════════════════
+ *  SHARED DATA WORKSPACE — user-uploaded files, available to every module.
+ *  Raw bytes live in Postgres base64-encoded (files are capped at 4MB, under
+ *  Vercel's request limit; the neon-http driver ships params as JSON text, so
+ *  base64 text beats bytea here). Reprocess/replace/ingest re-read the original
+ *  without extra infra. `scope` = 'shared' (default) or a domain id.
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+export const workspaceFiles = pgTable(
+  'workspace_files',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** Display name (renameable); original filename kept separately. */
+    name: varchar('name', { length: 200 }).notNull(),
+    originalFilename: varchar('original_filename', { length: 255 }).notNull(),
+    format: varchar('format', { length: 10 }).notNull(), // csv | xlsx | json | pdf | txt | docx
+    sizeBytes: integer('size_bytes').notNull(),
+    scope: varchar('scope', { length: 20 }).notNull().default('shared'),
+    status: varchar('status', { length: 20 }).notNull().default('ready'), // ready | error
+    error: text('error'),
+    /** Tabular formats only: detected columns + row count + preview sample. */
+    columns: jsonb('columns').$type<string[]>(),
+    rowCount: integer('row_count'),
+    sampleRows: jsonb('sample_rows').$type<Record<string, unknown>[]>(),
+    /** Text formats only: first ~2000 chars for preview. */
+    textPreview: text('text_preview'),
+    /** Original bytes, base64 — source of truth for preview/reprocess/replace/ingest. */
+    rawBase64: text('raw_base64').notNull(),
+    /** Set when this file's rows were ingested into the Operations schema. */
+    ingestedAt: timestamp('ingested_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [index('workspace_files_scope_idx').on(t.scope)],
+)
+
+/* ════════════════════════════════════════════════════════════════════════════
  *  OPERATIONS domain — shaped for the UCI "Online Retail II" dataset.
  *  Source columns: Invoice, StockCode, Description, Quantity, InvoiceDate,
  *  Price, Customer ID, Country. Normalized into customers / products / invoices /
