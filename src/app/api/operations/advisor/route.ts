@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
-import { answer } from '@/core/advisor'
+import { answer, sanitizeQuestion, MAX_QUESTION_LENGTH } from '@/core/advisor'
 import { buildSnapshot } from '@/domains/operations/snapshot'
 import { ADVISOR_PERSONA, buildOpsContext, OPS_RULES, opsFallback, type OpsSnapshot } from '@/domains/operations/advisor'
 
 export async function POST(req: Request) {
-  const { question } = (await req.json()) as { question?: string }
-  if (!question?.trim()) return NextResponse.json({ error: 'question required' }, { status: 400 })
+  const body = await req.json().catch(() => null)
+  const question = sanitizeQuestion((body as { question?: unknown } | null)?.question)
+  if (!question) {
+    return NextResponse.json({ error: `question required (1–${MAX_QUESTION_LENGTH} chars)` }, { status: 400 })
+  }
 
   const snap = await buildSnapshot()
   if (!snap) {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { answer } from '@/core/advisor'
+import { answer, sanitizeQuestion, MAX_QUESTION_LENGTH } from '@/core/advisor'
 import { USER_COUNT } from '@/domains/product/generator'
 import { buildRetention, buildFunnel } from '@/domains/product/analytics'
 import { rankInitiatives } from '@/domains/product/prioritization'
@@ -7,8 +7,11 @@ import { getExperiments } from '@/domains/product/experiments'
 import { ADVISOR_PERSONA, buildProductContext, PRODUCT_RULES, productFallback, type ProductAdvisorSnapshot } from '@/domains/product/advisor'
 
 export async function POST(req: Request) {
-  const { question } = (await req.json()) as { question?: string }
-  if (!question?.trim()) return NextResponse.json({ error: 'question required' }, { status: 400 })
+  const body = await req.json().catch(() => null)
+  const question = sanitizeQuestion((body as { question?: unknown } | null)?.question)
+  if (!question) {
+    return NextResponse.json({ error: `question required (1–${MAX_QUESTION_LENGTH} chars)` }, { status: 400 })
+  }
 
   const { pooled } = buildRetention()
   const { steps } = buildFunnel()

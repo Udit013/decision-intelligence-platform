@@ -10,7 +10,7 @@ export function DomainNav({ domainId, items }: { domainId: string; items: Domain
   const base = `/${domainId}`
 
   return (
-    <nav className="flex flex-col gap-0.5">
+    <nav aria-label="Module pages" className="flex flex-col gap-0.5">
       {items.map((item) => {
         const href = item.slug ? `${base}/${item.slug}` : base
         const active = item.slug ? pathname === href : pathname === base
@@ -18,6 +18,7 @@ export function DomainNav({ domainId, items }: { domainId: string; items: Domain
           <Link
             key={item.slug || 'index'}
             href={href}
+            aria-current={active ? 'page' : undefined}
             className={cn(
               'rounded-md px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface hover:text-fg',
               active && 'bg-surface font-medium text-fg',

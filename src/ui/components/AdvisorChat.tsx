@@ -58,7 +58,7 @@ export function AdvisorChat({ endpoint, suggestions }: { endpoint: string; sugge
         {busy && <p className="text-sm text-muted">Thinking…</p>}
       </div>
       <form onSubmit={(e) => { e.preventDefault(); ask(input) }} className="mt-4 flex gap-2">
-        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask the advisor…" className="flex-1 rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-[var(--accent)]" />
+        <input value={input} onChange={(e) => setInput(e.target.value)} maxLength={500} aria-label="Ask the advisor" placeholder="Ask the advisor…" className="flex-1 rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-[var(--accent)]" />
         <button type="submit" disabled={busy} className="inline-flex items-center gap-2 rounded-md border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-4 py-2 text-sm text-[var(--accent)] disabled:opacity-50">
           <Send className="h-4 w-4" />
         </button>

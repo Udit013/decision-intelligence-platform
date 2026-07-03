@@ -26,6 +26,12 @@ export default async function DomainLayout({
   return (
     // Per-domain accent: every accent-driven component reads --accent.
     <div style={{ ['--accent' as string]: ACCENT_HEX[mod.accent] }}>
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:text-sm focus:shadow-md"
+      >
+        Skip to content
+      </a>
       <header className="sticky top-0 z-40 border-b border-border bg-bg/80 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-6 py-3">
           <Link href="/" className="hover:opacity-80">
@@ -43,7 +49,7 @@ export default async function DomainLayout({
         <aside className="w-52 shrink-0">
           <DomainNav domainId={mod.id} items={mod.nav} />
         </aside>
-        <main className="min-w-0 flex-1">{children}</main>
+        <main id="main" className="min-w-0 flex-1">{children}</main>
       </div>
     </div>
   )

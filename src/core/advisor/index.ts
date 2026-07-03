@@ -63,6 +63,23 @@ export async function generate(prompt: string, opts: GenerateOptions = {}): Prom
   }
 }
 
+/* ── Input validation ────────────────────────────────────────────────────────── */
+
+export const MAX_QUESTION_LENGTH = 500
+
+/**
+ * Validate and normalize a user question. Returns the trimmed question, or null
+ * when empty/not a string/over the length cap — callers respond 400. The cap
+ * bounds prompt size to the local model and prevents junk payloads from tying up
+ * the (45s-timeout) generation call.
+ */
+export function sanitizeQuestion(input: unknown): string | null {
+  if (typeof input !== 'string') return null
+  const q = input.trim()
+  if (!q || q.length > MAX_QUESTION_LENGTH) return null
+  return q
+}
+
 /* ── Retrieval-augmented contract ────────────────────────────────────────────── */
 
 export interface ContextSection {

@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { buildContextText, advisorPrompt, routeDeterministic, type IntentRule } from './index'
+import {
+  buildContextText,
+  advisorPrompt,
+  routeDeterministic,
+  sanitizeQuestion,
+  MAX_QUESTION_LENGTH,
+  type IntentRule,
+} from './index'
 
 interface Ctx {
   forecast: string
@@ -11,6 +18,25 @@ const rules: IntentRule<Ctx>[] = [
   { match: ['churn', 'retain', 'at risk'], answer: (c) => c.churn },
 ]
 const fallback = () => 'Open the Decision Center for the ranked list.'
+
+describe('sanitizeQuestion', () => {
+  it('trims and accepts a normal question', () => {
+    expect(sanitizeQuestion('  how is retention?  ')).toBe('how is retention?')
+  })
+
+  it('rejects empty, non-string, and over-length input', () => {
+    expect(sanitizeQuestion('')).toBeNull()
+    expect(sanitizeQuestion('   ')).toBeNull()
+    expect(sanitizeQuestion(42)).toBeNull()
+    expect(sanitizeQuestion(null)).toBeNull()
+    expect(sanitizeQuestion({ q: 'x' })).toBeNull()
+    expect(sanitizeQuestion('x'.repeat(MAX_QUESTION_LENGTH + 1))).toBeNull()
+  })
+
+  it('accepts exactly the max length', () => {
+    expect(sanitizeQuestion('x'.repeat(MAX_QUESTION_LENGTH))).toHaveLength(MAX_QUESTION_LENGTH)
+  })
+})
 
 describe('buildContextText', () => {
   it('renders labeled sections', () => {

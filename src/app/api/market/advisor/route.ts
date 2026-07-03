@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server'
-import { answer } from '@/core/advisor'
+import { answer, sanitizeQuestion, MAX_QUESTION_LENGTH } from '@/core/advisor'
 import { generateMarkets, generateCompetitiveData } from '@/domains/market/generator'
 import { generateMarketDecisions } from '@/domains/market/scoring'
 import { ADVISOR_PERSONA, buildMarketContext, MARKET_RULES, marketFallback, type MarketAdvisorSnapshot } from '@/domains/market/advisor'
 
 export async function POST(req: Request) {
-  const { question } = (await req.json()) as { question?: string }
-  if (!question?.trim()) return NextResponse.json({ error: 'question required' }, { status: 400 })
+  const body = await req.json().catch(() => null)
+  const question = sanitizeQuestion((body as { question?: unknown } | null)?.question)
+  if (!question) {
+    return NextResponse.json({ error: `question required (1–${MAX_QUESTION_LENGTH} chars)` }, { status: 400 })
+  }
 
   const markets = generateMarkets()
   const competitive = generateCompetitiveData()
