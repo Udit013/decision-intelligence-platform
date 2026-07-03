@@ -169,7 +169,11 @@ npx tsx --max-old-space-size=4096 scripts/etl-operations.ts
 ```
 
 Before the ETL runs, Operations pages render a graceful "run the ETL" state
-rather than crashing.
+rather than crashing. The ETL is **idempotent-safe**: it refuses to seed over
+existing data (re-running would duplicate metrics) unless you pass `--force`,
+which wipes and reloads. To verify a deployment's database connection, hit
+**`GET /api/operations/health`** — it reports seeded row counts and live query
+latency.
 
 ### Environment variables
 
@@ -192,7 +196,10 @@ rather than crashing.
 | `npx tsx scripts/harness-demo.ts` | validation-harness failure proof |
 | `npx tsx scripts/operations-metrics.ts` | recompute honest Operations metrics |
 | `npx tsx scripts/product-metrics.ts` | recompute measured Product metrics |
-| `npx tsx scripts/etl-operations.ts` | ETL the real dataset into Postgres |
+| `npx tsx scripts/etl-operations.ts` | ETL the real dataset into Postgres (`--force` to wipe & reload) |
+
+CI (GitHub Actions) runs lint, typecheck, all tests, and a production build on
+every push and pull request to `main`.
 
 ---
 
