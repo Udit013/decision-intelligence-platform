@@ -24,8 +24,8 @@ export function ForecastChart({ series }: { series: ForecastPoint[] }) {
         series: [
           { name: 'lower', type: 'line', data: lower, lineStyle: { opacity: 0 }, stack: 'band', symbol: 'none', silent: true },
           { name: 'band', type: 'line', data: range, lineStyle: { opacity: 0 }, areaStyle: { color: ACCENT_FILL.cyan }, stack: 'band', symbol: 'none', silent: true },
-          { name: 'Actual', type: 'line', data: actual, showSymbol: false, lineStyle: { width: 2, color: CHART.ink }, connectNulls: false },
-          { name: 'Forecast', type: 'line', data: fcast, showSymbol: false, lineStyle: { width: 2, color: ACCENT.cyan, type: 'dashed' } },
+          { name: 'Actual', type: 'line', data: actual, showSymbol: false, itemStyle: { color: CHART.ink }, lineStyle: { width: 2, color: CHART.ink }, connectNulls: false },
+          { name: 'Forecast', type: 'line', data: fcast, showSymbol: false, itemStyle: { color: ACCENT.cyan }, lineStyle: { width: 2, color: ACCENT.cyan, type: 'dashed' } },
         ],
       }}
     />

@@ -1,37 +1,50 @@
 @import 'tailwindcss';
 
 /*
- * CoreSight IQ — unified light design system.
- * One palette across all three domains; each domain only swaps its accent
- * (operations=cyan, market=violet, product=lime) via the --accent variable set
- * on the domain layout.
+ * CoreSight IQ — "The Ledger" design system.
+ *
+ * The product's thesis is published, honest numbers, so the visual language is
+ * borrowed from financial print and instrumentation rather than SaaS chrome:
+ * warm paper surfaces, near-black ink, hairline rules as the primary structure,
+ * near-square geometry, serif display type, and mono figures. One accent per
+ * module carries meaning (identity), never decoration.
  */
 
 @theme {
-  --color-bg: #f6f8fb;
-  --color-surface: #ffffff;
-  --color-surface-2: #f1f4f9;
-  --color-border: #e3e8ef;
-  --color-fg: #0f172a;
-  --color-muted: #5b6675;
+  /* ── Paper & ink neutrals (warm cast throughout) ─────────────────────────── */
+  --color-bg: #f2efe7; /* paper */
+  --color-surface: #faf8f2; /* raised sheet */
+  --color-surface-2: #e9e4d7; /* recessed well */
+  --color-border: #d6cfbe; /* hairline */
+  --color-fg: #1d1a14; /* ink */
+  --color-muted: #6d675a; /* faded ink */
 
-  /* Domain accents — tuned for contrast on a light background */
-  --color-violet: #7c3aed;
-  --color-lime: #4d7c0f;
-  --color-cyan: #0891b2;
+  /* ── Module accents (keys are historical; hues are the ledger palette) ───── */
+  --color-cyan: #0e5f57; /* operations — petrol */
+  --color-violet: #653a5e; /* market — aubergine */
+  --color-lime: #53641c; /* product — moss */
 
-  /* Semantic (reserved for meaning, shared across domains) */
-  --color-good: #16a34a;
-  --color-warn: #b45309;
-  --color-bad: #dc2626;
-  --color-info: #2563eb;
+  /* ── Semantic inks (meaning only, never decoration) ──────────────────────── */
+  --color-good: #2e6b3c;
+  --color-warn: #8a5a12;
+  --color-bad: #a33127;
+  --color-info: #3d5876;
 
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-jetbrains), ui-monospace, 'SF Mono', monospace;
+  /* ── Near-square geometry: collapse the whole radius scale ───────────────── */
+  --radius-sm: 1px;
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius-xl: 4px;
+  --radius-2xl: 4px;
+  --radius-3xl: 6px;
+
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, 'SF Mono', monospace;
+  --font-display: var(--font-fraunces), 'Iowan Old Style', Georgia, serif;
 }
 
 :root {
-  /* Default accent; overridden per-domain on the domain layout wrapper. */
+  /* Default accent; overridden per-module on the module layout wrapper. */
   --accent: var(--color-cyan);
 }
 
@@ -41,17 +54,40 @@ body {
   color: var(--color-fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* Subtle dotted grid + soft top gradient for a clean, modern surface. */
-body {
-  background-image:
-    radial-gradient(circle at 1px 1px, rgba(15, 23, 42, 0.04) 1px, transparent 0),
-    linear-gradient(180deg, rgba(8, 145, 178, 0.04), transparent 320px);
-  background-size: 28px 28px, 100% 100%;
-  background-attachment: fixed;
+::selection {
+  background: var(--color-fg);
+  color: var(--color-bg);
+}
+
+/* Visible, consistent keyboard focus everywhere. */
+:focus-visible {
+  outline: 2px solid var(--color-fg);
+  outline-offset: 2px;
 }
 
 .font-mono {
   font-family: var(--font-mono);
+}
+.font-display {
+  font-family: var(--font-display);
+}
+
+@layer components {
+  /* Small-caps mono label — section heads, table heads, statuslines. */
+  .kicker {
+    @apply font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-muted;
+  }
+
+  /* Primary action: solid ink block. Inverts on hover — deliberate, print-like. */
+  .btn-ink {
+    @apply inline-flex items-center gap-2 border border-fg bg-fg px-4 py-2 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-bg transition-colors hover:bg-transparent hover:text-fg;
+  }
+
+  /* Secondary action: hairline. */
+  .btn-line {
+    @apply inline-flex items-center gap-2 border border-border bg-transparent px-4 py-2 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-fg transition-colors hover:border-fg;
+  }
 }

@@ -167,16 +167,18 @@ export function DataManager() {
           if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files)
         }}
         className={cn(
-          'flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 text-center transition-colors',
-          dragOver ? 'border-[var(--accent)] bg-[var(--accent)]/5' : 'border-border bg-surface hover:border-[var(--accent)]/50',
+          'flex cursor-pointer flex-col items-center justify-center border border-dashed px-6 py-12 text-center transition-colors',
+          dragOver ? 'border-fg bg-surface' : 'border-muted/60 bg-surface hover:border-fg',
         )}
       >
-        <UploadCloud className="h-8 w-8 text-[var(--accent)]" />
-        <p className="mt-3 text-sm font-semibold">Drag & drop files here, or click to browse</p>
-        <p className="mt-1 text-xs text-muted">CSV · XLSX · JSON · TXT · PDF · DOCX — up to {MAX_FILE_LABEL} each, multiple files supported</p>
-        <label className="mt-4 flex items-center gap-2 text-xs text-muted" onClick={(e) => e.stopPropagation()}>
+        <UploadCloud className="h-6 w-6 text-[var(--accent)]" />
+        <p className="mt-3 font-display text-lg font-medium">Drag &amp; drop files here, or click to browse</p>
+        <p className="kicker mt-2 normal-case tracking-[0.06em]">
+          CSV · XLSX · JSON · TXT · PDF · DOCX — up to {MAX_FILE_LABEL} each, multiple files supported
+        </p>
+        <label className="mt-4 flex items-center gap-2 font-mono text-[11px] text-muted" onClick={(e) => e.stopPropagation()}>
           Upload into:
-          <select value={scope} onChange={(e) => setScope(e.target.value as FileScope)} className="rounded-md border border-border bg-surface px-2 py-1 text-xs outline-none">
+          <select value={scope} onChange={(e) => setScope(e.target.value as FileScope)} className="border border-border bg-surface px-2 py-1 font-mono text-[11px] outline-none">
             {SCOPES.map((s) => (
               <option key={s} value={s}>{SCOPE_LABEL[s]}</option>
             ))}
@@ -206,7 +208,7 @@ export function DataManager() {
       {uploads.length > 0 && (
         <div className="mt-4 space-y-2">
           {uploads.map((u) => (
-            <div key={u.key} className={cn('rounded-md border px-4 py-2.5', u.error ? 'border-bad/40 bg-bad/5' : 'border-border bg-surface')}>
+            <div key={u.key} className={cn('border px-4 py-2.5', u.error ? 'border-bad/50 bg-surface' : 'border-border bg-surface')}>
               <div className="flex items-center justify-between gap-3 text-sm">
                 <span className="truncate">{u.filename}</span>
                 {u.error ? (
@@ -220,8 +222,8 @@ export function DataManager() {
               {u.error ? (
                 <p className="mt-1 text-xs text-bad">{u.error}</p>
               ) : (
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
-                  <div className="h-full rounded-full bg-[var(--accent)] transition-all" style={{ width: `${u.progress}%` }} />
+                <div className="mt-2 h-1 overflow-hidden bg-surface-2">
+                  <div className="h-full bg-[var(--accent)] transition-all" style={{ width: `${u.progress}%` }} />
                 </div>
               )}
             </div>
@@ -229,7 +231,11 @@ export function DataManager() {
         </div>
       )}
 
-      {notice && <div className="mt-4 rounded-md border border-info/40 bg-info/5 px-4 py-2.5 text-sm">{notice}</div>}
+      {notice && (
+        <div className="mt-4 border-y border-border px-4 py-2.5 text-[13px]" style={{ boxShadow: 'inset 2px 0 0 var(--color-info)' }} role="status">
+          {notice}
+        </div>
+      )}
 
       {/* ── File list ── */}
       <Card className="mt-6">
@@ -308,7 +314,7 @@ export function DataManager() {
       {/* ── Preview modal ── */}
       {preview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-fg/30 p-4" role="dialog" aria-modal="true" onClick={() => setPreview(null)}>
-          <div className="max-h-[80vh] w-full max-w-3xl overflow-auto rounded-lg border border-border bg-surface shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-[80vh] w-full max-w-3xl overflow-auto border border-fg bg-surface" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-border px-5 py-3">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-muted" />
@@ -364,7 +370,7 @@ function IconBtn({ title, onClick, danger, children }: { title: string; onClick:
       title={title}
       aria-label={title}
       onClick={onClick}
-      className={cn('rounded-md border border-border bg-surface p-1.5 transition-colors', danger ? 'text-bad hover:bg-bad/10' : 'text-muted hover:bg-surface-2 hover:text-fg')}
+      className={cn('border border-border bg-surface p-1.5 transition-colors', danger ? 'text-bad hover:border-bad' : 'text-muted hover:border-fg hover:text-fg')}
     >
       {children}
     </button>

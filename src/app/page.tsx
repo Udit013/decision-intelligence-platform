@@ -1,140 +1,207 @@
 import Link from 'next/link'
-import { ArrowRight, Database, Upload, Sparkles, FileText, Bot, Layers } from 'lucide-react'
 import { DOMAINS } from '@/core/registry'
-import { Card, CardBody } from '@/ui/components/Card'
 import { ProvenanceBadge } from '@/ui/components/Badge'
 import { Logo } from '@/ui/components/Logo'
 
 const ACCENT_HEX = { cyan: 'var(--color-cyan)', violet: 'var(--color-violet)', lime: 'var(--color-lime)' } as const
 
-const PIPELINE = [
-  { icon: Database, label: 'Ingest', desc: 'Real or synthetic domain data' },
-  { icon: Layers, label: 'Score', desc: 'Multi-criteria, weighted & classified' },
-  { icon: Sparkles, label: 'Recommend', desc: 'Ranked, confidence-scored decisions' },
-  { icon: FileText, label: 'Report', desc: 'One-click executive PDF' },
-  { icon: Bot, label: 'Advise', desc: 'Local-AI Q&A, grounded in the data' },
+/* Published figures — real, verified numbers from this repository (the platform's
+ * thesis is that it prints its actual results, including the unflattering ones). */
+const FIGURES = [
+  { value: '1,067,371', label: 'real transactions', note: 'UCI Online Retail II' },
+  { value: '0.072', label: 'honest weekly R²', note: 'walk-forward, out-of-sample' },
+  { value: '105', label: 'unit tests', note: 'engine + domains' },
+  { value: '120', label: 'modeled markets', note: 'was “121” — we recounted' },
 ]
 
-const DATA_DOCS: Record<string, { source: string; setup: string }> = {
-  operations: { source: 'UCI “Online Retail II” — ~1M real UK e-commerce transactions (2009–2011).', setup: 'Needs a one-time ETL (DATABASE_URL → npm run db:push → ETL script).' },
-  market: { source: '120 synthetic markets with realistic 2023–24-style economic indicators.', setup: 'Zero setup — runs in-memory, no database.' },
-  product: { source: '3,000 synthetic SaaS users with events, funnels & cohorts.', setup: 'Zero setup — runs in-memory, no database.' },
+const PIPELINE = [
+  { name: 'Ingest', desc: 'Real or labeled synthetic data, in-app upload or CLI ETL with a pre-seed quality report.' },
+  { name: 'Score', desc: 'One weighted multi-criteria engine ranks and classifies — the same primitive in all three modules.' },
+  { name: 'Recommend', desc: 'Signals become ranked decisions, priced by impact × confidence, with the evidence attached.' },
+  { name: 'Report', desc: 'One-click executive PDF with the honest accuracy figures printed on it.' },
+  { name: 'Advise', desc: 'A local-first analyst (Ollama, deterministic fallback) grounded in the live numbers.' },
+]
+
+const DATA_DOCS: Record<string, string> = {
+  operations: '~1.07M real UK e-commerce transactions (2009–2011). One-time ETL, or upload order lines in-app.',
+  market: '120 synthetic markets with realistic economic indicators. Zero setup — in-memory.',
+  product: '3,000 synthetic SaaS users with events, funnels & cohorts. Zero setup — in-memory.',
 }
+
+const STEPS = [
+  { t: 'Pick a module', d: 'Operations, Market, or Product — from the contents at right or the tabs inside.' },
+  { t: 'Read the decision desk', d: 'Each module opens on ranked, confidence-scored decisions; the index drills into forecasts, segments, funnels, and scenarios.' },
+  { t: 'Export or interrogate', d: 'Download the executive PDF, or ask the advisor in plain English — it answers from the live figures.' },
+]
 
 export default function Home() {
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border bg-surface/70 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+      <header className="border-b border-fg">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5 sm:px-8">
           <Logo />
-          <a href="https://github.com/Udit013/decision-intelligence-platform" className="text-xs font-medium text-muted hover:text-fg">
-            GitHub ↗
-          </a>
+          <nav className="flex items-center gap-5 font-mono text-[10px] font-medium uppercase tracking-[0.14em]">
+            <Link href="/data" className="underline decoration-border underline-offset-4 hover:decoration-fg">
+              Data manager
+            </Link>
+            <a
+              href="https://github.com/Udit013/decision-intelligence-platform"
+              className="underline decoration-border underline-offset-4 hover:decoration-fg"
+            >
+              Source ↗
+            </a>
+          </nav>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-16">
-        {/* Hero */}
-        <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-muted">
-          <span className="h-1.5 w-1.5 rounded-full bg-good" /> One engine · three domains
-        </span>
-        <h1 className="mt-4 max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
-          Decision intelligence, <span className="text-[var(--color-cyan)]">not dashboards</span>.
-        </h1>
-        <p className="mt-4 max-w-2xl text-lg text-muted">
-          CoreSight IQ turns operations, market, and product data into ranked, confidence-scored
-          decisions — powered by one shared analytics core: forecasting with honest backtesting,
-          multi-criteria scoring, a recommendation synthesizer, PDF reports, and a local-AI advisor.
-        </p>
-
-        {/* Module cards */}
-        <div className="mt-12 grid gap-4 sm:grid-cols-3">
-          {DOMAINS.map((d) => (
-            <Link key={d.id} href={`/${d.id}`} className="group">
-              <Card className="h-full shadow-sm transition-all group-hover:-translate-y-0.5 group-hover:shadow-md" style={{ ['--c' as string]: ACCENT_HEX[d.accent] }}>
-                <CardBody>
-                  <div className="flex items-center justify-between">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: ACCENT_HEX[d.accent] }} />
-                    <ProvenanceBadge provenance={d.provenance} source={d.dataSource} />
-                  </div>
-                  <h2 className="mt-4 text-lg font-semibold">{d.label}</h2>
-                  <p className="mt-1 text-sm text-muted">{d.tagline}</p>
-                  <p className="mt-3 text-xs text-muted">{DATA_DOCS[d.id]?.source}</p>
-                  <span className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-[color:var(--c)]">
-                    Open module <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                  </span>
-                </CardBody>
-              </Card>
-            </Link>
-          ))}
-        </div>
-
-        {/* Pipeline */}
-        <section className="mt-20">
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted">How it works</h2>
-          <p className="mt-2 max-w-2xl text-muted">Every module follows the same five-step pipeline — the abstraction that lets one engine serve three very different problems.</p>
-          <div className="mt-6 grid gap-3 sm:grid-cols-5">
-            {PIPELINE.map((s, i) => (
-              <Card key={s.label}>
-                <CardBody>
-                  <s.icon className="h-5 w-5 text-[var(--color-cyan)]" />
-                  <p className="mt-3 text-sm font-semibold">{i + 1}. {s.label}</p>
-                  <p className="mt-1 text-xs text-muted">{s.desc}</p>
-                </CardBody>
-              </Card>
-            ))}
+      <main className="mx-auto max-w-6xl px-5 sm:px-8">
+        {/* ── Front page: statement + contents, deliberately asymmetric ── */}
+        <section className="grid gap-10 border-b border-border py-14 lg:grid-cols-12 lg:gap-14">
+          <div className="lg:col-span-7">
+            <p className="kicker">Decision intelligence · three modules · one engine</p>
+            <h1 className="mt-4 font-display text-[clamp(34px,5vw,52px)] font-medium leading-[1.06] tracking-[-0.015em]">
+              Ranked decisions,
+              <br />
+              with the accuracy
+              <br />
+              <em className="font-normal italic text-[var(--color-cyan)]">printed on them.</em>
+            </h1>
+            <p className="mt-6 max-w-md text-[15px] leading-relaxed text-muted">
+              CoreSight IQ turns operations, market, and product data into confidence-scored
+              recommendations — forecasting with walk-forward backtesting, multi-criteria scoring,
+              executive reporting, and a local-AI analyst. Every figure it shows is measured, labeled,
+              or honestly disclaimed.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Link href="/operations" className="btn-ink">
+                Open the platform
+              </Link>
+              <Link href="/data" className="btn-line">
+                Upload data
+              </Link>
+            </div>
           </div>
-        </section>
 
-        {/* Getting started */}
-        <section className="mt-20 grid gap-6 lg:grid-cols-2">
-          <div>
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-muted">Getting started</h2>
-            <ol className="mt-4 space-y-4">
-              {[
-                { t: 'Pick a module', d: 'Open Operations, Market, or Product from the cards above or the switcher in the header.' },
-                { t: 'Explore the data', d: 'Each module opens on a Decision Center, then drill into forecasting, segments, funnels, scenarios and more from the left nav.' },
-                { t: 'Generate a report or ask the advisor', d: 'Export a one-click executive PDF, or open the AI Advisor and ask in plain English — it answers grounded in the live numbers.' },
-              ].map((s, i) => (
-                <li key={s.t} className="flex gap-3">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-cyan)]/12 text-xs font-semibold text-[var(--color-cyan)]">{i + 1}</span>
-                  <div><p className="text-sm font-semibold">{s.t}</p><p className="text-sm text-muted">{s.d}</p></div>
+          {/* Contents — numbered module index */}
+          <div className="lg:col-span-5">
+            <p className="kicker border-t-2 border-t-fg pt-3">Contents</p>
+            <ol className="mt-1">
+              {DOMAINS.map((d, i) => (
+                <li key={d.id} className="border-b border-border">
+                  <Link
+                    href={`/${d.id}`}
+                    className="group flex gap-4 py-4 transition-colors hover:bg-surface"
+                    style={{ ['--m' as string]: ACCENT_HEX[d.accent] }}
+                  >
+                    <span className="font-mono text-[11px] font-medium text-[color:var(--m)]">
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline justify-between gap-3">
+                        <span className="font-display text-[19px] font-medium leading-tight">{d.label}</span>
+                        <ProvenanceBadge provenance={d.provenance} source={d.dataSource} />
+                      </span>
+                      <span className="mt-1 block text-[13px] leading-relaxed text-muted">{d.tagline}</span>
+                      <span className="mt-1.5 block font-mono text-[10px] uppercase tracking-[0.1em] text-muted/80">
+                        {DATA_DOCS[d.id]}
+                      </span>
+                    </span>
+                    <span className="self-center font-mono text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-fg">
+                      →
+                    </span>
+                  </Link>
                 </li>
               ))}
             </ol>
           </div>
+        </section>
 
-          <div>
-            <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-muted"><Upload className="h-4 w-4" /> Datasets & adding data</h2>
-            <div className="mt-4 space-y-3">
-              {DOMAINS.map((d) => (
-                <Card key={d.id}>
-                  <CardBody className="py-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold">{d.label}</span>
-                      <ProvenanceBadge provenance={d.provenance} source={d.dataSource} />
-                    </div>
-                    <p className="mt-1 text-xs text-muted">{DATA_DOCS[d.id]?.source}</p>
-                    <p className="mt-1 text-xs text-muted"><span className="font-medium text-fg">Load:</span> {DATA_DOCS[d.id]?.setup}</p>
-                  </CardBody>
-                </Card>
-              ))}
-              <Link
-                href="/data"
-                className="inline-flex items-center gap-2 rounded-md border border-[var(--color-cyan)]/40 bg-[var(--color-cyan)]/10 px-4 py-2 text-sm font-semibold text-[var(--color-cyan)] transition-colors hover:bg-[var(--color-cyan)]/20"
-              >
-                <Upload className="h-4 w-4" /> Open the Data Manager
-              </Link>
-              <p className="text-xs text-muted">Upload CSV/XLSX/JSON/TXT/PDF/DOCX once — shared across all modules. Full ETL & schema details in the <a className="text-[var(--color-cyan)] hover:underline" href="https://github.com/Udit013/decision-intelligence-platform#setup">README</a>.</p>
+        {/* ── Published figures ── */}
+        <section aria-label="Published figures" className="grid grid-cols-2 divide-border border-b border-border sm:grid-cols-4 sm:divide-x">
+          {FIGURES.map((f) => (
+            <div key={f.label} className="px-1 py-6 sm:px-6 sm:first:pl-0">
+              <p className="font-mono text-[28px] font-medium leading-none tracking-tight tabular-nums">{f.value}</p>
+              <p className="kicker mt-2">{f.label}</p>
+              <p className="mt-1 text-[11px] text-muted">{f.note}</p>
             </div>
+          ))}
+        </section>
+
+        {/* ── Method ── */}
+        <section className="grid gap-10 border-b border-border py-14 lg:grid-cols-12">
+          <div className="lg:col-span-4">
+            <p className="kicker">Method</p>
+            <h2 className="mt-3 font-display text-[26px] font-medium leading-tight">
+              One pipeline, proven three times.
+            </h2>
+            <p className="mt-3 text-[13px] leading-relaxed text-muted">
+              Every module runs the same five stages on one shared engine — the abstraction that lets
+              genuinely different problems share forecasting, scoring, and reporting code.
+            </p>
+          </div>
+          <ol className="lg:col-span-8">
+            {PIPELINE.map((s, i) => (
+              <li key={s.name} className="grid grid-cols-[3rem_1fr] gap-4 border-b border-border py-4 first:border-t-2 first:border-t-fg sm:grid-cols-[3rem_10rem_1fr]">
+                <span className="font-mono text-[11px] font-medium text-muted">{String(i + 1).padStart(2, '0')}</span>
+                <span className="font-display text-[17px] font-medium leading-tight">{s.name}</span>
+                <span className="col-span-2 mt-1 text-[13px] leading-relaxed text-muted sm:col-span-1 sm:mt-0">{s.desc}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        {/* ── Honest numbers note + getting started ── */}
+        <section className="grid gap-10 border-b border-border py-14 lg:grid-cols-12">
+          <figure className="lg:col-span-5">
+            <blockquote className="border-l-2 border-fg pl-5">
+              <p className="font-display text-[19px] font-normal italic leading-snug">
+                “On this spiky real series the forecast barely beats a naive mean — R² ≈ 0.07. The old
+                claim of 0.90 was never reproduced, so it isn&apos;t here.”
+              </p>
+            </blockquote>
+            <figcaption className="kicker mt-3 pl-5">
+              From the validation harness — reproducible via{' '}
+              <code className="normal-case">scripts/harness-demo.ts</code>
+            </figcaption>
+          </figure>
+
+          <div className="lg:col-span-7">
+            <p className="kicker">Getting started</p>
+            <ol className="mt-2 grid gap-6 sm:grid-cols-3">
+              {STEPS.map((s, i) => (
+                <li key={s.t} className="border-t border-border pt-3">
+                  <span className="font-mono text-[11px] font-medium text-muted">{String(i + 1).padStart(2, '0')}</span>
+                  <p className="mt-1.5 text-sm font-semibold">{s.t}</p>
+                  <p className="mt-1 text-[13px] leading-relaxed text-muted">{s.d}</p>
+                </li>
+              ))}
+            </ol>
+            <p className="mt-8 text-[13px] text-muted">
+              Bring your own data: CSV, XLSX, JSON, TXT, PDF, or DOCX — uploaded once, shared across
+              modules.{' '}
+              <Link href="/data" className="font-medium text-fg underline decoration-border underline-offset-4 hover:decoration-fg">
+                Open the Data Manager
+              </Link>
+              , or see the{' '}
+              <a
+                href="https://github.com/Udit013/decision-intelligence-platform#setup"
+                className="font-medium text-fg underline decoration-border underline-offset-4 hover:decoration-fg"
+              >
+                README
+              </a>{' '}
+              for the CLI ETL.
+            </p>
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-6 py-6 text-xs text-muted sm:flex-row">
+      {/* ── Colophon ── */}
+      <footer>
+        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <Logo />
-          <span>Operations on real data · Market & Product on labeled synthetic data · MIT licensed</span>
+          <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+            Operations on real data · Market &amp; Product on labeled synthetic data · MIT
+          </p>
         </div>
       </footer>
     </div>

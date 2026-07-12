@@ -14,24 +14,28 @@ export const metadata = {
 export default function DataPage() {
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-40 border-b border-border bg-bg/80 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-fg bg-bg/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3 sm:px-6">
-          <Link href="/" className="hover:opacity-80"><Logo /></Link>
-          <span className="text-border">/</span>
-          <span className="text-sm font-semibold">Data Manager</span>
-          <Link href="/" className="ml-auto inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
-            <ArrowLeft className="h-3.5 w-3.5" /> Back to modules
+          <Link href="/" className="hover:opacity-75"><Logo /></Link>
+          <span className="kicker hidden sm:block">Data manager</span>
+          <Link
+            href="/"
+            className="ml-auto inline-flex items-center gap-1 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-fg underline decoration-border underline-offset-4 hover:decoration-fg"
+          >
+            <ArrowLeft className="h-3 w-3" /> Modules
           </Link>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <h1 className="text-2xl font-bold tracking-tight">Data Manager</h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted">
-          One shared workspace for all modules. Upload once and every module can see the dataset by
-          default — or scope a file to a single module. Tabular files can be loaded directly into the
-          Operations analytics.
-        </p>
+        <header className="mb-6 border-b border-border pb-4">
+          <h1 className="font-display text-[30px] font-medium leading-[1.1] tracking-[-0.01em]">Data Manager</h1>
+          <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-muted">
+            One shared workspace for all modules. Upload once and every module can see the dataset by
+            default — or scope a file to a single module. Tabular files can be loaded directly into the
+            Operations analytics.
+          </p>
+        </header>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
           <div>

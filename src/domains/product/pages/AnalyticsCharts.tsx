@@ -27,7 +27,7 @@ export function RetentionCurve({ pooled }: { pooled: { offset: number; ratePct: 
         tooltip: { trigger: 'axis', valueFormatter: (v: unknown) => `${v}%` },
         xAxis: { type: 'category', data: pooled.map((p) => `D${p.offset}`) },
         yAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' }, splitLine: { lineStyle: { color: CHART.grid } } },
-        series: [{ type: 'line', data: pooled.map((p) => p.ratePct), smooth: true, areaStyle: { color: ACCENT_FILL.lime }, lineStyle: { color: ACCENT.lime, width: 2 }, symbolSize: 6 }],
+        series: [{ type: 'line', data: pooled.map((p) => p.ratePct), smooth: true, areaStyle: { color: ACCENT_FILL.lime }, itemStyle: { color: ACCENT.lime }, lineStyle: { color: ACCENT.lime, width: 2 }, symbolSize: 6 }],
       }}
     />
   )
@@ -50,7 +50,7 @@ export function CohortHeatmap({ matrix, offsets }: { matrix: CohortRow[]; offset
         tooltip: { position: 'top', formatter: (p: unknown) => { const d = (p as { value: [number, number, number] }).value; return `${rows[d[1]].cohortKey} · D${offsets[d[0]]}: ${d[2]}%` } },
         xAxis: { type: 'category', data: offsets.map((o) => `D${o}`), splitArea: { show: true } },
         yAxis: { type: 'category', data: rows.map((r) => r.cohortKey), splitArea: { show: true } },
-        visualMap: { min: 0, max: 100, calculable: true, orient: 'horizontal', left: 'center', bottom: 0, inRange: { color: ['#f1f4f9', '#bef264', '#4d7c0f'] }, textStyle: { color: CHART.muted } },
+        visualMap: { min: 0, max: 100, calculable: true, orient: 'horizontal', left: 'center', bottom: 0, inRange: { color: ['#e9e4d7', '#a9b06a', '#53641c'] }, textStyle: { color: CHART.muted } },
         series: [{ type: 'heatmap', data, label: { show: true, formatter: (p: unknown) => `${(p as { value: [number, number, number] }).value[2]}`, color: CHART.ink, fontSize: 10 } }],
       }}
     />

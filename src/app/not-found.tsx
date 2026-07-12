@@ -5,15 +5,14 @@ export default function NotFound() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
       <Logo />
-      <p className="mt-8 font-mono text-xs uppercase tracking-widest text-muted">404 — Not found</p>
-      <h1 className="mt-2 text-2xl font-bold tracking-tight">This page doesn&apos;t exist.</h1>
-      <p className="mt-2 max-w-sm text-sm text-muted">
+      <p className="kicker mt-10">404 — not found</p>
+      <h1 className="mt-3 font-display text-3xl font-medium leading-tight">
+        This page doesn&apos;t exist.
+      </h1>
+      <p className="mt-2 max-w-sm text-[13px] leading-relaxed text-muted">
         The link may be outdated. Head back to the platform and pick a module from there.
       </p>
-      <Link
-        href="/"
-        className="mt-6 rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium transition-colors hover:bg-surface-2"
-      >
+      <Link href="/" className="btn-line mt-8">
         ← Back to CoreSight IQ
       </Link>
     </main>

@@ -1,8 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { Send } from 'lucide-react'
-import { Card, CardBody } from './Card'
 import { Badge } from './Badge'
 
 interface Msg {
@@ -11,7 +9,11 @@ interface Msg {
   source?: 'ollama' | 'deterministic'
 }
 
-/** Reusable advisor chat — posts {question} to `endpoint`, expects {text, source}. */
+/**
+ * Advisor console — a transcript, not a chat bubble UI. User entries read as
+ * queries (mono, prefixed ▸); answers as ruled analyst notes with their source
+ * tagged. Posts {question} to `endpoint`, expects {text, source}.
+ */
 export function AdvisorChat({ endpoint, suggestions }: { endpoint: string; suggestions: string[] }) {
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
@@ -23,7 +25,11 @@ export function AdvisorChat({ endpoint, suggestions }: { endpoint: string; sugge
     setInput('')
     setBusy(true)
     try {
-      const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q }) })
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q }),
+      })
       const data = await res.json()
       setMessages((m) => [...m, { role: 'assistant', text: data.text, source: data.source }])
     } catch {
@@ -36,31 +42,58 @@ export function AdvisorChat({ endpoint, suggestions }: { endpoint: string; sugge
   return (
     <>
       {messages.length === 0 && (
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="mb-5 flex flex-wrap gap-2">
           {suggestions.map((s) => (
-            <button key={s} onClick={() => ask(s)} className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-fg">
-              {s}
+            <button
+              key={s}
+              onClick={() => ask(s)}
+              className="border border-border bg-surface px-3 py-1.5 font-mono text-[11px] text-muted transition-colors hover:border-fg hover:text-fg"
+            >
+              ▸ {s}
             </button>
           ))}
         </div>
       )}
-      <div className="space-y-3">
-        {messages.map((m, i) => (
-          <Card key={i} className={m.role === 'user' ? 'ml-auto max-w-[80%] bg-surface-2' : 'mr-auto max-w-[85%]'}>
-            <CardBody className="py-3">
-              {m.role === 'assistant' && m.source && (
-                <Badge tone={m.source === 'ollama' ? 'accent' : 'neutral'} className="mb-2">{m.source === 'ollama' ? 'local model' : 'deterministic'}</Badge>
+
+      <div className="space-y-0">
+        {messages.map((m, i) =>
+          m.role === 'user' ? (
+            <p key={i} className="border-t border-border py-3 font-mono text-[13px] font-medium">
+              <span className="mr-2 text-[var(--accent)]">▸</span>
+              {m.text}
+            </p>
+          ) : (
+            <div key={i} className="border-t border-border bg-surface px-4 py-4" style={{ boxShadow: 'inset 2px 0 0 var(--accent)' }}>
+              {m.source && (
+                <Badge tone={m.source === 'ollama' ? 'accent' : 'neutral'} className="mb-2">
+                  {m.source === 'ollama' ? 'Local model' : 'Deterministic'}
+                </Badge>
               )}
-              <p className="whitespace-pre-wrap text-sm">{m.text}</p>
-            </CardBody>
-          </Card>
-        ))}
-        {busy && <p className="text-sm text-muted">Thinking…</p>}
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.text}</p>
+            </div>
+          ),
+        )}
+        {busy && <p className="border-t border-border py-3 font-mono text-[11px] uppercase tracking-[0.12em] text-muted">Working…</p>}
       </div>
-      <form onSubmit={(e) => { e.preventDefault(); ask(input) }} className="mt-4 flex gap-2">
-        <input value={input} onChange={(e) => setInput(e.target.value)} maxLength={500} aria-label="Ask the advisor" placeholder="Ask the advisor…" className="flex-1 rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-[var(--accent)]" />
-        <button type="submit" disabled={busy} className="inline-flex items-center gap-2 rounded-md border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-4 py-2 text-sm text-[var(--accent)] disabled:opacity-50">
-          <Send className="h-4 w-4" />
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          ask(input)
+        }}
+        className="mt-5 flex border border-fg"
+      >
+        <span aria-hidden className="flex items-center pl-3 font-mono text-sm text-[var(--accent)]">▸</span>
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          maxLength={500}
+          aria-label="Ask the advisor"
+          placeholder="Ask the advisor…"
+          className="min-w-0 flex-1 bg-transparent px-3 py-2.5 font-mono text-[13px] outline-none placeholder:text-muted/70"
+        />
+        <button type="submit" disabled={busy} className="btn-ink border-y-0 border-r-0 disabled:opacity-50">
+          Ask
         </button>
       </form>
     </>

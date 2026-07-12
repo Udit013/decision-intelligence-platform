@@ -1,27 +1,27 @@
 /**
- * Shared chart palette (light theme). ECharts renders to canvas and can't read CSS
- * variables, so every chart imports these constants — keeping all visualizations
- * consistent with the CoreSight IQ light design system.
+ * Shared chart palette — "the ledger". ECharts renders to canvas and can't read
+ * CSS variables, so every chart imports these constants, keeping visualizations
+ * on the same paper-and-ink system as the UI.
  */
 export const CHART = {
-  ink: '#0f172a', // primary text / dark series line
-  muted: '#64748b', // axis labels, legends
-  grid: '#eef2f7', // split lines
-  axis: '#dbe1ea', // axis lines
-  tooltipBg: '#ffffff',
-  tooltipBorder: '#e2e6ed',
+  ink: '#1d1a14', // primary series / labels
+  muted: '#6d675a', // axis labels, legends
+  grid: '#e5e0d2', // split lines (hairline)
+  axis: '#cfc8b5', // axis lines
+  tooltipBg: '#faf8f2',
+  tooltipBorder: '#d6cfbe',
 } as const
 
-/** Domain accents, tuned for contrast on a white background. */
+/** Module accents (keys are historical registry ids; hues are the ledger palette). */
 export const ACCENT = {
-  cyan: '#0891b2', // operations
-  violet: '#7c3aed', // market
-  lime: '#4d7c0f', // product
+  cyan: '#0e5f57', // operations — petrol
+  violet: '#653a5e', // market — aubergine
+  lime: '#53641c', // product — moss
 } as const
 
 /** Translucent area fill for a given accent (line-chart bands). */
 export const ACCENT_FILL = {
-  cyan: 'rgba(8,145,178,0.10)',
-  violet: 'rgba(124,58,237,0.10)',
-  lime: 'rgba(77,124,15,0.10)',
+  cyan: 'rgba(14,95,87,0.10)',
+  violet: 'rgba(101,58,94,0.10)',
+  lime: 'rgba(83,100,28,0.10)',
 } as const

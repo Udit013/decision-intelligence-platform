@@ -1,19 +1,18 @@
 /**
- * Active-dataset strip shown in every module: what data is powering the module
- * right now, plus how many workspace uploads are available to it. Server
- * component with one light query; wrapped in Suspense by the layout and fails
- * soft (built-in label only) when the DB is unreachable.
+ * Dataset statusline — a full-width mono strip under the masthead (terminal
+ * convention): what data powers this module right now, and how many workspace
+ * uploads are available to it. Server component with one light query; wrapped
+ * in Suspense by the layout and fails soft (built-in label only) without a DB.
  */
 import Link from 'next/link'
-import { Database } from 'lucide-react'
 import { sql } from 'drizzle-orm'
 import { getDb } from '@/db'
 import type { DomainId } from '@/core/registry'
 
 const BUILT_IN: Record<DomainId, string> = {
-  operations: 'UCI Online Retail II (real)',
-  market: 'Built-in synthetic markets (demo)',
-  product: 'Built-in synthetic users (demo)',
+  operations: 'UCI Online Retail II · real',
+  market: 'Synthetic markets · demo',
+  product: 'Synthetic users · demo',
 }
 
 async function fetchStatus(domain: DomainId) {
@@ -35,21 +34,22 @@ async function fetchStatus(domain: DomainId) {
 
 export async function DatasetStatus({ domain }: { domain: DomainId }) {
   const status = await fetchStatus(domain)
-  const ingestedNote = domain === 'operations' && status?.ingested ? ` + ${status.ingested} ingested upload${status.ingested > 1 ? 's' : ''}` : ''
+  const ingested = domain === 'operations' && status?.ingested ? ` +${status.ingested} ingested` : ''
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border bg-surface px-3 py-2 text-xs">
-      <span className="inline-flex items-center gap-1.5 text-muted">
-        <Database className="h-3.5 w-3.5 text-[var(--accent)]" />
-        Active dataset:
-      </span>
-      <span className="font-medium">{BUILT_IN[domain]}{ingestedNote}</span>
-      {status && status.available > 0 && (
-        <span className="text-muted">· {status.available} workspace file{status.available > 1 ? 's' : ''} available</span>
-      )}
-      <Link href="/data" className="ml-auto font-medium text-[var(--accent)] hover:underline">
-        Manage data →
-      </Link>
+    <div className="border-b border-border bg-surface-2/50">
+      <div className="mx-auto flex max-w-7xl items-baseline gap-x-2 overflow-x-auto px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.1em] sm:px-6">
+        <span className="shrink-0 text-muted">dataset ▸</span>
+        <span className="shrink-0 font-medium text-fg">{BUILT_IN[domain]}{ingested}</span>
+        {status && status.available > 0 && (
+          <span className="shrink-0 text-muted">
+            · {status.available} workspace file{status.available > 1 ? 's' : ''}
+          </span>
+        )}
+        <Link href="/data" className="ml-auto shrink-0 font-medium text-[var(--accent)] underline-offset-2 hover:underline">
+          manage →
+        </Link>
+      </div>
     </div>
   )
 }

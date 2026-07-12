@@ -20,18 +20,17 @@ export default function DomainError({
   }, [error])
 
   return (
-    <div className="rounded-lg border border-bad/30 bg-bad/5 p-8 text-center">
-      <p className="font-mono text-xs uppercase tracking-widest text-bad">Something went wrong</p>
-      <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-        This view failed to load — most often a transient database hiccup. Your data is safe;
-        retrying usually resolves it.
+    <div className="border border-border border-t-2 border-t-bad bg-surface px-6 py-10 text-center">
+      <p className="kicker text-bad">Something went wrong</p>
+      <p className="mx-auto mt-3 max-w-md font-display text-xl font-medium leading-snug">
+        This view failed to load.
+      </p>
+      <p className="mx-auto mt-2 max-w-md text-[13px] leading-relaxed text-muted">
+        Most often a transient database hiccup — your data is safe, and retrying usually resolves it.
       </p>
       {error.digest && <p className="mt-2 font-mono text-[10px] text-muted">ref: {error.digest}</p>}
-      <button
-        onClick={reset}
-        className="mt-5 inline-flex items-center gap-2 rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium transition-colors hover:bg-surface-2"
-      >
-        <RotateCcw className="h-4 w-4" /> Try again
+      <button onClick={reset} className="btn-ink mt-6">
+        <RotateCcw className="h-3.5 w-3.5" /> Try again
       </button>
     </div>
   )

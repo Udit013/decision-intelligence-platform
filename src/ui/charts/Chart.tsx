@@ -45,7 +45,7 @@ echarts.use([
 function withTheme(option: EChartsOption): EChartsOption {
   return {
     backgroundColor: 'transparent',
-    textStyle: { fontFamily: 'Inter, sans-serif', color: CHART.muted },
+    textStyle: { fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontSize: 11, color: CHART.muted },
     grid: { left: 48, right: 24, top: 32, bottom: 40, containLabel: true, ...(option.grid as object) },
     tooltip: {
       backgroundColor: CHART.tooltipBg,

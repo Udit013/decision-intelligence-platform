@@ -43,7 +43,7 @@ import { COST_ASSUMPTION_NOTE } from './assumptions'
 export const OPERATIONS_META = {
   brand: 'CoreSight IQ',
   reportTitle: 'Operations — Executive Report',
-  accentRgb: [8, 145, 178] as [number, number, number],
+  accentRgb: [14, 95, 87] as [number, number, number],
   dataNote: 'Real data: UCI Online Retail II (2009–2011). ' + COST_ASSUMPTION_NOTE,
 }
 

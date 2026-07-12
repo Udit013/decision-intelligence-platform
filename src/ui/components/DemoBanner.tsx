@@ -1,11 +1,12 @@
-/** Prominent top-level notice that a domain runs on synthetic, modeled demo data. */
+/**
+ * Provenance notice — a ruled editorial note, not an alert card. States plainly
+ * that a module runs on synthetic, modeled demo data.
+ */
 export function DemoBanner({ note }: { note: string }) {
   return (
-    <div className="mb-6 rounded-lg border-2 border-warn/50 bg-warn/10 p-4">
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-xs uppercase tracking-widest text-warn">⚠ Demo data · modeled</span>
-      </div>
-      <p className="mt-1.5 text-sm text-fg">{note}</p>
-    </div>
+    <aside className="mb-6 border-y border-border py-3 pl-4" style={{ boxShadow: 'inset 2px 0 0 var(--color-warn)' }}>
+      <p className="kicker text-warn">Synthetic data · modeled</p>
+      <p className="mt-1 max-w-3xl text-[13px] leading-relaxed text-fg">{note}</p>
+    </aside>
   )
 }

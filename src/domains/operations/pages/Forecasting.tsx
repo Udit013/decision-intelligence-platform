@@ -44,20 +44,20 @@ export default async function Forecasting() {
       <PageHeader title="Forecasting" tagline="Weekly revenue, model auto-selected by a leakage-free nested backtest." />
 
       {honest && (
-        <div className="mb-6 rounded-lg border-2 border-warn/60 bg-warn/15 p-5">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xs uppercase tracking-widest text-warn">⚠ Honest accuracy</span>
-            <span className="rounded-full bg-warn/20 px-2 py-0.5 font-mono text-xs font-bold text-warn">
+        <aside className="mb-6 border-y-2 border-warn/70 py-4 pl-5" style={{ boxShadow: 'inset 3px 0 0 var(--color-warn)' }}>
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <span className="kicker text-warn">Honest accuracy</span>
+            <span className="font-mono text-sm font-semibold tabular-nums text-warn">
               R² {wf1.metrics.r2.toFixed(2)} · MAPE {wf1.metrics.mape.toFixed(0)}%
             </span>
           </div>
-          <p className="mt-2 text-sm text-fg">
-            On this real, spiky series the forecast <strong>barely beats a naive mean</strong> (R²{' '}
-            {wf1.metrics.r2.toFixed(2)} one-step, {wf4.metrics.r2.toFixed(2)} at four weeks, measured out-of-sample over{' '}
-            {wf1.origins} walk-forward folds). This is far below the old README&apos;s &ldquo;0.90 R²&rdquo; claim, which was
-            never reproduced on real data. Plan against the shaded interval below — not the point estimate.
+          <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-fg">
+            On this real, spiky series the forecast <strong>barely beats a naive mean</strong>
+            {` (R² ${wf1.metrics.r2.toFixed(2)} one-step, ${wf4.metrics.r2.toFixed(2)} at four weeks, measured out-of-sample over ${wf1.origins} walk-forward folds). `}
+            This is far below the old README&apos;s &ldquo;0.90 R²&rdquo; claim, which was never reproduced
+            on real data. Plan against the shaded interval below — not the point estimate.
           </p>
-        </div>
+        </aside>
       )}
 
       <KpiGrid>
