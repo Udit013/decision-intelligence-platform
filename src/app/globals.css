@@ -1,46 +1,49 @@
 @import 'tailwindcss';
 
 /*
- * CoreSight IQ — "The Ledger" design system.
+ * CoreSight IQ — premium enterprise design system.
  *
- * The product's thesis is published, honest numbers, so the visual language is
- * borrowed from financial print and instrumentation rather than SaaS chrome:
- * warm paper surfaces, near-black ink, hairline rules as the primary structure,
- * near-square geometry, serif display type, and mono figures. One accent per
- * module carries meaning (identity), never decoration.
+ * Cool, quiet neutrals with generous whitespace; depth comes from soft layered
+ * shadows and hairlines, not heavy borders. One deep accent per module carries
+ * identity; semantic colors are reserved for meaning. Type: Space Grotesk for
+ * display/figures, Hanken Grotesk for UI text, IBM Plex Mono for data labels.
  */
 
 @theme {
-  /* ── Paper & ink neutrals (warm cast throughout) ─────────────────────────── */
-  --color-bg: #f2efe7; /* paper */
-  --color-surface: #faf8f2; /* raised sheet */
-  --color-surface-2: #e9e4d7; /* recessed well */
-  --color-border: #d6cfbe; /* hairline */
-  --color-fg: #1d1a14; /* ink */
-  --color-muted: #6d675a; /* faded ink */
+  /* ── Neutrals ────────────────────────────────────────────────────────────── */
+  --color-bg: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-surface-2: #f0f2f5;
+  --color-border: #e5e8ee;
+  --color-fg: #131722;
+  --color-muted: #647082;
 
-  /* ── Module accents (keys are historical; hues are the ledger palette) ───── */
-  --color-cyan: #0e5f57; /* operations — petrol */
-  --color-violet: #653a5e; /* market — aubergine */
-  --color-lime: #53641c; /* product — moss */
+  /* ── Module accents (keys are historical registry ids) ───────────────────── */
+  --color-cyan: #0d7570; /* operations — deep teal */
+  --color-violet: #6641c8; /* market — refined violet */
+  --color-lime: #1d7a4c; /* product — emerald */
 
-  /* ── Semantic inks (meaning only, never decoration) ──────────────────────── */
-  --color-good: #2e6b3c;
-  --color-warn: #8a5a12;
-  --color-bad: #a33127;
-  --color-info: #3d5876;
+  /* ── Semantic (meaning only) ─────────────────────────────────────────────── */
+  --color-good: #12805c;
+  --color-warn: #b45309;
+  --color-bad: #b42318;
+  --color-info: #175cd3;
 
-  /* ── Near-square geometry: collapse the whole radius scale ───────────────── */
-  --radius-sm: 1px;
-  --radius-md: 2px;
-  --radius-lg: 3px;
-  --radius-xl: 4px;
-  --radius-2xl: 4px;
-  --radius-3xl: 6px;
+  /* ── Geometry ────────────────────────────────────────────────────────────── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
 
-  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  /* ── Elevation (soft, layered — never heavy) ─────────────────────────────── */
+  --shadow-card: 0 1px 2px rgba(19, 23, 34, 0.04), 0 1px 3px rgba(19, 23, 34, 0.05);
+  --shadow-card-hover: 0 2px 4px rgba(19, 23, 34, 0.05), 0 6px 16px rgba(19, 23, 34, 0.07);
+  --shadow-pop: 0 8px 16px rgba(19, 23, 34, 0.08), 0 20px 40px rgba(19, 23, 34, 0.12);
+
+  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, 'SF Mono', monospace;
-  --font-display: var(--font-fraunces), 'Iowan Old Style', Georgia, serif;
+  --font-display: var(--font-grotesk), var(--font-hanken), ui-sans-serif, sans-serif;
 }
 
 :root {
@@ -57,15 +60,21 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* A whisper of warmth at the top of every page — depth without decoration. */
+body {
+  background-image: linear-gradient(180deg, #ffffff 0%, rgba(255, 255, 255, 0) 280px);
+}
+
 ::selection {
   background: var(--color-fg);
-  color: var(--color-bg);
+  color: #ffffff;
 }
 
 /* Visible, consistent keyboard focus everywhere. */
 :focus-visible {
-  outline: 2px solid var(--color-fg);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .font-mono {
@@ -76,18 +85,33 @@ body {
 }
 
 @layer components {
-  /* Small-caps mono label — section heads, table heads, statuslines. */
+  /* Small-caps label — section heads, table heads, statuslines. */
   .kicker {
-    @apply font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-muted;
+    @apply font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted;
   }
 
-  /* Primary action: solid ink block. Inverts on hover — deliberate, print-like. */
+  /* Primary action: deep slate with a soft top-light gradient. */
   .btn-ink {
-    @apply inline-flex items-center gap-2 border border-fg bg-fg px-4 py-2 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-bg transition-colors hover:bg-transparent hover:text-fg;
+    @apply inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-semibold text-white transition-all;
+    background: linear-gradient(180deg, #2a3242 0%, #131722 100%);
+    box-shadow: 0 1px 2px rgba(19, 23, 34, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+  .btn-ink:hover {
+    filter: brightness(1.15);
+  }
+  .btn-ink:active {
+    transform: translateY(1px);
   }
 
-  /* Secondary action: hairline. */
+  /* Secondary action: quiet outline on white. */
   .btn-line {
-    @apply inline-flex items-center gap-2 border border-border bg-transparent px-4 py-2 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-fg transition-colors hover:border-fg;
+    @apply inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-[13px] font-semibold text-fg transition-all;
+    box-shadow: var(--shadow-card);
+  }
+  .btn-line:hover {
+    @apply border-muted/50 bg-surface-2/60;
+  }
+  .btn-line:active {
+    transform: translateY(1px);
   }
 }

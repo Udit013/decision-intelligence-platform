@@ -2,14 +2,14 @@ import Link from 'next/link'
 import { cn } from '@/ui/cn'
 
 /**
- * Figures ledger — headline numbers set as one ruled strip divided by
- * hairlines, not four identical floating cards. Values are tabular mono;
- * labels are small-caps kickers. Estimated figures carry an explicit "≈ est"
- * mark (the platform never passes a model off as a measurement).
+ * Headline figures — one connected strip divided by hairlines (a single card,
+ * not four floating ones). Values are display-face tabular numerals; labels are
+ * quiet small-caps. Estimated figures carry an explicit "≈ est" mark — the
+ * platform never passes a model off as a measurement.
  */
 export function KpiGrid({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-2 gap-px border border-border border-t-2 border-t-fg bg-border lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-card lg:grid-cols-4">
       {children}
     </div>
   )
@@ -27,23 +27,25 @@ export function Kpi({
   estimate?: boolean
 }) {
   return (
-    <div className="bg-surface px-4 py-4">
+    <div className="bg-surface px-5 py-4 transition-colors hover:bg-surface-2/40">
       <p className="kicker">
         {label}
         {estimate && <span className="ml-1.5 normal-case tracking-normal text-warn">≈ est</span>}
       </p>
-      <p className="mt-2 font-mono text-[26px] font-medium leading-none tracking-tight tabular-nums">{value}</p>
+      <p className="mt-2.5 font-display text-[26px] font-semibold leading-none tracking-tight tabular-nums">
+        {value}
+      </p>
       {sub && <p className={cn('mt-2 text-xs text-muted')}>{sub}</p>}
     </div>
   )
 }
 
-/** Page header — serif display headline over a hairline, with a mono kicker rule. */
+/** Page header — display headline with a quiet supporting line; air, not rules. */
 export function PageHeader({ title, tagline }: { title: string; tagline?: string }) {
   return (
-    <header className="mb-6 border-b border-border pb-4">
-      <h1 className="font-display text-[30px] font-medium leading-[1.1] tracking-[-0.01em]">{title}</h1>
-      {tagline && <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-muted">{tagline}</p>}
+    <header className="mb-7">
+      <h1 className="font-display text-[26px] font-semibold leading-tight tracking-[-0.02em]">{title}</h1>
+      {tagline && <p className="mt-1.5 max-w-2xl text-[13.5px] leading-relaxed text-muted">{tagline}</p>}
     </header>
   )
 }
@@ -51,7 +53,7 @@ export function PageHeader({ title, tagline }: { title: string; tagline?: string
 /** Shown when the operations DB has no data yet. */
 export function EmptyState() {
   return (
-    <div className="border border-border border-t-2 border-t-fg bg-surface px-6 py-12 text-center">
+    <div className="rounded-xl border border-border bg-surface px-6 py-14 text-center shadow-card">
       <p className="kicker text-[var(--accent)]">No data yet</p>
       <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted">
         This module has no data loaded. Upload a transactions file (CSV/XLSX/JSON with invoice, SKU,
@@ -60,10 +62,10 @@ export function EmptyState() {
       <Link href="/data" className="btn-ink mt-6">
         Upload data
       </Link>
-      <p className="mt-6 text-xs text-muted">
+      <p className="mt-7 text-xs text-muted">
         Or load the full UCI Online Retail II dataset (~1M rows) from the CLI:
       </p>
-      <pre className="mx-auto mt-2 w-fit border border-border bg-surface-2 px-4 py-2 text-left font-mono text-xs text-fg">
+      <pre className="mx-auto mt-2 w-fit rounded-lg border border-border bg-surface-2/70 px-4 py-2.5 text-left font-mono text-xs text-fg">
         npm run db:push{'\n'}npx tsx --max-old-space-size=4096 scripts/etl-operations.ts
       </pre>
     </div>

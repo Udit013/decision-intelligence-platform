@@ -1,24 +1,24 @@
 import type { Metadata } from 'next'
-import { Fraunces, IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google'
+import { Space_Grotesk, Hanken_Grotesk, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 
 /*
- * Type system — "the ledger":
- *  Fraunces        editorial serif for display/headlines (the product's voice)
- *  IBM Plex Sans   engineered grotesk for UI text
- *  IBM Plex Mono   tabular mono for figures, labels, statuslines
+ * Type system:
+ *  Space Grotesk    geometric display for headlines and headline figures
+ *  Hanken Grotesk   clean humanist grotesk for UI text
+ *  IBM Plex Mono    tabular mono for data labels and statuslines
  */
-const display = Fraunces({
+const display = Space_Grotesk({
   subsets: ['latin'],
-  variable: '--font-fraunces',
-  weight: ['400', '500', '600'],
-  style: ['normal', 'italic'],
+  variable: '--font-grotesk',
+  weight: ['400', '500', '600', '700'],
   display: 'swap',
 })
-const body = IBM_Plex_Sans({
+const body = Hanken_Grotesk({
   subsets: ['latin'],
-  variable: '--font-plex-sans',
+  variable: '--font-hanken',
   weight: ['400', '500', '600', '700'],
+  style: ['normal', 'italic'],
   display: 'swap',
 })
 const data = IBM_Plex_Mono({

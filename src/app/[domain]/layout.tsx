@@ -2,17 +2,12 @@ import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getDomain } from '@/core/registry'
+import { ACCENT_HEX } from '@/ui/accents'
 import { DomainSwitcher } from '@/ui/components/DomainSwitcher'
 import { ProvenanceBadge } from '@/ui/components/Badge'
 import { Logo } from '@/ui/components/Logo'
 import { DatasetStatus } from '@/ui/components/DatasetStatus'
 import { DomainNav } from './DomainNav'
-
-const ACCENT_HEX = {
-  cyan: 'var(--color-cyan)',
-  violet: 'var(--color-violet)',
-  lime: 'var(--color-lime)',
-} as const
 
 export default async function DomainLayout({
   children,
@@ -30,22 +25,22 @@ export default async function DomainLayout({
     <div style={{ ['--accent' as string]: ACCENT_HEX[mod.accent] }}>
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:border focus:border-fg focus:bg-surface focus:px-3 focus:py-2 focus:text-sm"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:border focus:border-border focus:bg-surface focus:px-3 focus:py-2 focus:text-sm focus:shadow-pop"
       >
         Skip to content
       </a>
 
       {/* Masthead: wordmark · module tabs · data + provenance. */}
-      <header className="sticky top-0 z-40 border-b border-fg bg-bg/95 backdrop-blur-sm">
+      <header className="sticky top-0 z-40 border-b border-border bg-surface/85 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-0 px-4 sm:px-6">
-          <Link href="/" className="py-3 hover:opacity-75">
+          <Link href="/" className="py-3 transition-opacity hover:opacity-75">
             <Logo />
           </Link>
           <DomainSwitcher current={mod} />
           <div className="ml-auto flex items-center gap-3 py-3">
             <Link
               href="/data"
-              className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-fg underline decoration-border underline-offset-4 transition-colors hover:decoration-fg"
+              className="hidden rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-fg shadow-card transition-all hover:border-muted/50 hover:bg-surface-2/60 sm:inline-flex"
             >
               Upload / manage data
             </Link>
@@ -55,12 +50,12 @@ export default async function DomainLayout({
       </header>
 
       {/* Statusline: streams in after the page; fails soft without a DB. */}
-      <Suspense fallback={<div className="h-[29px] border-b border-border bg-surface-2/50" />}>
+      <Suspense fallback={<div className="h-[29px] border-b border-border/70 bg-surface-2/40" />}>
         <DatasetStatus domain={mod.id} />
       </Suspense>
 
       {/* Index rail on lg+; horizontal index strip on mobile. */}
-      <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-6 sm:px-6 lg:flex-row lg:gap-10 lg:py-10">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-7 sm:px-6 lg:flex-row lg:gap-12 lg:py-10">
         <aside className="w-full shrink-0 lg:w-48">
           <DomainNav domainId={mod.id} items={mod.nav} />
         </aside>

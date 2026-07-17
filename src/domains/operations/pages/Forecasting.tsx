@@ -44,10 +44,10 @@ export default async function Forecasting() {
       <PageHeader title="Forecasting" tagline="Weekly revenue, model auto-selected by a leakage-free nested backtest." />
 
       {honest && (
-        <aside className="mb-6 border-y-2 border-warn/70 py-4 pl-5" style={{ boxShadow: 'inset 3px 0 0 var(--color-warn)' }}>
+        <aside className="mb-6 rounded-xl border border-warn/25 bg-warn/[0.06] px-5 py-4">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <span className="kicker text-warn">Honest accuracy</span>
-            <span className="font-mono text-sm font-semibold tabular-nums text-warn">
+            <span className="font-display text-sm font-semibold tabular-nums text-warn">
               R² {wf1.metrics.r2.toFixed(2)} · MAPE {wf1.metrics.mape.toFixed(0)}%
             </span>
           </div>

@@ -14,7 +14,7 @@ export const metadata = {
 export default function DataPage() {
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-40 border-b border-fg bg-bg/95 backdrop-blur-sm">
+      <header className="sticky top-0 z-40 border-b border-border bg-surface/85 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3 sm:px-6">
           <Link href="/" className="hover:opacity-75"><Logo /></Link>
           <span className="kicker hidden sm:block">Data manager</span>
@@ -28,7 +28,7 @@ export default function DataPage() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <header className="mb-6 border-b border-border pb-4">
+        <header className="mb-7">
           <h1 className="font-display text-[30px] font-medium leading-[1.1] tracking-[-0.01em]">Data Manager</h1>
           <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-muted">
             One shared workspace for all modules. Upload once and every module can see the dataset by

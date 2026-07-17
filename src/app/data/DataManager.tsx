@@ -167,18 +167,22 @@ export function DataManager() {
           if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files)
         }}
         className={cn(
-          'flex cursor-pointer flex-col items-center justify-center border border-dashed px-6 py-12 text-center transition-colors',
-          dragOver ? 'border-fg bg-surface' : 'border-muted/60 bg-surface hover:border-fg',
+          'flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-all',
+          dragOver
+            ? 'border-[var(--accent)] bg-[var(--accent)]/[0.04] shadow-card-hover'
+            : 'border-border bg-surface shadow-card hover:border-muted/50',
         )}
       >
-        <UploadCloud className="h-6 w-6 text-[var(--accent)]" />
-        <p className="mt-3 font-display text-lg font-medium">Drag &amp; drop files here, or click to browse</p>
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--accent)]/10">
+          <UploadCloud className="h-5 w-5 text-[var(--accent)]" />
+        </span>
+        <p className="mt-4 font-display text-[17px] font-semibold">Drag &amp; drop files here, or click to browse</p>
         <p className="kicker mt-2 normal-case tracking-[0.06em]">
           CSV · XLSX · JSON · TXT · PDF · DOCX — up to {MAX_FILE_LABEL} each, multiple files supported
         </p>
         <label className="mt-4 flex items-center gap-2 font-mono text-[11px] text-muted" onClick={(e) => e.stopPropagation()}>
           Upload into:
-          <select value={scope} onChange={(e) => setScope(e.target.value as FileScope)} className="border border-border bg-surface px-2 py-1 font-mono text-[11px] outline-none">
+          <select value={scope} onChange={(e) => setScope(e.target.value as FileScope)} className="rounded-md border border-border bg-surface px-2 py-1 text-xs outline-none">
             {SCOPES.map((s) => (
               <option key={s} value={s}>{SCOPE_LABEL[s]}</option>
             ))}
@@ -208,7 +212,7 @@ export function DataManager() {
       {uploads.length > 0 && (
         <div className="mt-4 space-y-2">
           {uploads.map((u) => (
-            <div key={u.key} className={cn('border px-4 py-2.5', u.error ? 'border-bad/50 bg-surface' : 'border-border bg-surface')}>
+            <div key={u.key} className={cn('rounded-xl border px-4 py-2.5 shadow-card', u.error ? 'border-bad/40 bg-bad/[0.04]' : 'border-border bg-surface')}>
               <div className="flex items-center justify-between gap-3 text-sm">
                 <span className="truncate">{u.filename}</span>
                 {u.error ? (
@@ -314,7 +318,7 @@ export function DataManager() {
       {/* ── Preview modal ── */}
       {preview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-fg/30 p-4" role="dialog" aria-modal="true" onClick={() => setPreview(null)}>
-          <div className="max-h-[80vh] w-full max-w-3xl overflow-auto border border-fg bg-surface" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-[80vh] w-full max-w-3xl overflow-auto rounded-2xl border border-border bg-surface shadow-pop" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-border px-5 py-3">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-muted" />
@@ -370,7 +374,7 @@ function IconBtn({ title, onClick, danger, children }: { title: string; onClick:
       title={title}
       aria-label={title}
       onClick={onClick}
-      className={cn('border border-border bg-surface p-1.5 transition-colors', danger ? 'text-bad hover:border-bad' : 'text-muted hover:border-fg hover:text-fg')}
+      className={cn('rounded-lg border border-border bg-surface p-1.5 transition-colors', danger ? 'text-bad hover:border-bad/50 hover:bg-bad/5' : 'text-muted hover:bg-surface-2 hover:text-fg')}
     >
       {children}
     </button>

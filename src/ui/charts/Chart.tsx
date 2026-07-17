@@ -45,14 +45,14 @@ echarts.use([
 function withTheme(option: EChartsOption): EChartsOption {
   return {
     backgroundColor: 'transparent',
-    textStyle: { fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontSize: 11, color: CHART.muted },
+    textStyle: { fontFamily: "'Hanken Grotesk', ui-sans-serif, sans-serif", fontSize: 11, color: CHART.muted },
     grid: { left: 48, right: 24, top: 32, bottom: 40, containLabel: true, ...(option.grid as object) },
     tooltip: {
       backgroundColor: CHART.tooltipBg,
       borderColor: CHART.tooltipBorder,
       borderWidth: 1,
       textStyle: { color: CHART.ink },
-      extraCssText: 'box-shadow: 0 4px 16px rgba(15,23,42,0.10); border-radius: 8px;',
+      extraCssText: 'box-shadow: 0 8px 16px rgba(19,23,34,0.08), 0 20px 40px rgba(19,23,34,0.10); border-radius: 10px; padding: 10px 12px;',
       ...(option.tooltip as object),
     },
     ...option,

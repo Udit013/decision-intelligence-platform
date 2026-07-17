@@ -20,7 +20,7 @@ export default function DomainError({
   }, [error])
 
   return (
-    <div className="border border-border border-t-2 border-t-bad bg-surface px-6 py-10 text-center">
+    <div className="rounded-xl border border-bad/25 bg-bad/[0.04] px-6 py-10 text-center">
       <p className="kicker text-bad">Something went wrong</p>
       <p className="mx-auto mt-3 max-w-md font-display text-xl font-medium leading-snug">
         This view failed to load.

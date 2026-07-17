@@ -2,17 +2,17 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/ui/cn'
 import type { DataProvenance } from '@/core/registry'
 
-/** Tag — square, letter-spaced small caps with a hairline. Never a filled pill. */
+/** Status badge — softly tinted pill; color always communicates state. */
 const badge = cva(
-  'inline-flex items-center gap-1 border px-1.5 py-[3px] font-mono text-[10px] font-medium uppercase leading-none tracking-[0.12em]',
+  'inline-flex items-center gap-1 rounded-full px-2 py-[3px] font-mono text-[10px] font-medium uppercase leading-none tracking-[0.1em]',
   {
     variants: {
       tone: {
-        neutral: 'border-border text-muted',
-        good: 'border-good/50 text-good',
-        warn: 'border-warn/50 text-warn',
-        bad: 'border-bad/50 text-bad',
-        accent: 'border-[var(--accent)]/50 text-[var(--accent)]',
+        neutral: 'bg-surface-2 text-muted',
+        good: 'bg-good/10 text-good',
+        warn: 'bg-warn/10 text-warn',
+        bad: 'bg-bad/10 text-bad',
+        accent: 'bg-[var(--accent)]/10 text-[var(--accent)]',
       },
     },
     defaultVariants: { tone: 'neutral' },

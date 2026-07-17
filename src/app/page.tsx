@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { DOMAINS } from '@/core/registry'
 import { ProvenanceBadge } from '@/ui/components/Badge'
 import { Logo } from '@/ui/components/Logo'
+import { ACCENT_HEX } from '@/ui/accents'
 
-const ACCENT_HEX = { cyan: 'var(--color-cyan)', violet: 'var(--color-violet)', lime: 'var(--color-lime)' } as const
 
 /* Published figures — real, verified numbers from this repository (the platform's
  * thesis is that it prints its actual results, including the unflattering ones). */
@@ -37,7 +37,7 @@ const STEPS = [
 export default function Home() {
   return (
     <div className="min-h-screen">
-      <header className="border-b border-fg">
+      <header className="border-b border-border bg-surface/70 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5 sm:px-8">
           <Logo />
           <nav className="flex items-center gap-5 font-mono text-[10px] font-medium uppercase tracking-[0.14em]">
@@ -64,7 +64,7 @@ export default function Home() {
               <br />
               with the accuracy
               <br />
-              <em className="font-normal italic text-[var(--color-cyan)]">printed on them.</em>
+              <span className="text-[var(--color-cyan)]">printed on them.</span>
             </h1>
             <p className="mt-6 max-w-md text-[15px] leading-relaxed text-muted">
               CoreSight IQ turns operations, market, and product data into confidence-scored
@@ -84,13 +84,13 @@ export default function Home() {
 
           {/* Contents — numbered module index */}
           <div className="lg:col-span-5">
-            <p className="kicker border-t-2 border-t-fg pt-3">Contents</p>
+            <p className="kicker border-t border-border pt-4">Contents</p>
             <ol className="mt-1">
               {DOMAINS.map((d, i) => (
                 <li key={d.id} className="border-b border-border">
                   <Link
                     href={`/${d.id}`}
-                    className="group flex gap-4 py-4 transition-colors hover:bg-surface"
+                    className="group -mx-3 flex gap-4 rounded-xl px-3 py-4 transition-all hover:bg-surface hover:shadow-card"
                     style={{ ['--m' as string]: ACCENT_HEX[d.accent] }}
                   >
                     <span className="font-mono text-[11px] font-medium text-[color:var(--m)]">
@@ -120,7 +120,7 @@ export default function Home() {
         <section aria-label="Published figures" className="grid grid-cols-2 divide-border border-b border-border sm:grid-cols-4 sm:divide-x">
           {FIGURES.map((f) => (
             <div key={f.label} className="px-1 py-6 sm:px-6 sm:first:pl-0">
-              <p className="font-mono text-[28px] font-medium leading-none tracking-tight tabular-nums">{f.value}</p>
+              <p className="font-display text-[28px] font-semibold leading-none tracking-tight tabular-nums">{f.value}</p>
               <p className="kicker mt-2">{f.label}</p>
               <p className="mt-1 text-[11px] text-muted">{f.note}</p>
             </div>
@@ -141,7 +141,7 @@ export default function Home() {
           </div>
           <ol className="lg:col-span-8">
             {PIPELINE.map((s, i) => (
-              <li key={s.name} className="grid grid-cols-[3rem_1fr] gap-4 border-b border-border py-4 first:border-t-2 first:border-t-fg sm:grid-cols-[3rem_10rem_1fr]">
+              <li key={s.name} className="grid grid-cols-[3rem_1fr] gap-4 border-b border-border py-4 first:border-t first:border-t-border sm:grid-cols-[3rem_10rem_1fr]">
                 <span className="font-mono text-[11px] font-medium text-muted">{String(i + 1).padStart(2, '0')}</span>
                 <span className="font-display text-[17px] font-medium leading-tight">{s.name}</span>
                 <span className="col-span-2 mt-1 text-[13px] leading-relaxed text-muted sm:col-span-1 sm:mt-0">{s.desc}</span>
@@ -153,8 +153,8 @@ export default function Home() {
         {/* ── Honest numbers note + getting started ── */}
         <section className="grid gap-10 border-b border-border py-14 lg:grid-cols-12">
           <figure className="lg:col-span-5">
-            <blockquote className="border-l-2 border-fg pl-5">
-              <p className="font-display text-[19px] font-normal italic leading-snug">
+            <blockquote className="rounded-r-xl border-l-2 border-[var(--color-cyan)] bg-surface py-4 pl-5 pr-5 shadow-card">
+              <p className="font-display text-[18px] font-medium leading-snug">
                 “On this spiky real series the forecast barely beats a naive mean — R² ≈ 0.07. The old
                 claim of 0.90 was never reproduced, so it isn&apos;t here.”
               </p>

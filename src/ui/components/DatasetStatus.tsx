@@ -37,9 +37,10 @@ export async function DatasetStatus({ domain }: { domain: DomainId }) {
   const ingested = domain === 'operations' && status?.ingested ? ` +${status.ingested} ingested` : ''
 
   return (
-    <div className="border-b border-border bg-surface-2/50">
-      <div className="mx-auto flex max-w-7xl items-baseline gap-x-2 overflow-x-auto px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.1em] sm:px-6">
-        <span className="shrink-0 text-muted">dataset ▸</span>
+    <div className="border-b border-border/70 bg-surface-2/40">
+      <div className="mx-auto flex max-w-7xl items-center gap-x-2 overflow-x-auto px-4 py-[7px] font-mono text-[10px] uppercase tracking-[0.1em] sm:px-6">
+        <span className="mr-0.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden />
+        <span className="shrink-0 text-muted">dataset</span>
         <span className="shrink-0 font-medium text-fg">{BUILT_IN[domain]}{ingested}</span>
         {status && status.available > 0 && (
           <span className="shrink-0 text-muted">

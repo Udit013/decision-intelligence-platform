@@ -1,12 +1,7 @@
 import Link from 'next/link'
 import { DOMAINS, type DomainModule } from '@/core/registry'
+import { ACCENT_HEX } from '@/ui/accents'
 import { cn } from '@/ui/cn'
-
-const ACCENT_HEX: Record<DomainModule['accent'], string> = {
-  cyan: 'var(--color-cyan)',
-  violet: 'var(--color-violet)',
-  lime: 'var(--color-lime)',
-}
 
 /**
  * Module tabs — all three modules are always visible in the masthead as
@@ -24,10 +19,10 @@ export function DomainSwitcher({ current }: { current: DomainModule }) {
             href={`/${d.id}`}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'group flex items-baseline gap-1.5 border-b-2 pb-2 pt-2.5 text-sm transition-colors',
+              'group flex items-baseline gap-1.5 border-b-2 pb-2.5 pt-3 text-[13.5px] transition-colors duration-150',
               active
                 ? 'border-[color:var(--tab)] font-semibold text-fg'
-                : 'border-transparent text-muted hover:text-fg',
+                : 'border-transparent font-medium text-muted hover:text-fg',
             )}
             style={{ ['--tab' as string]: ACCENT_HEX[d.accent] }}
           >

@@ -47,23 +47,23 @@ export function AdvisorChat({ endpoint, suggestions }: { endpoint: string; sugge
             <button
               key={s}
               onClick={() => ask(s)}
-              className="border border-border bg-surface px-3 py-1.5 font-mono text-[11px] text-muted transition-colors hover:border-fg hover:text-fg"
+              className="rounded-full border border-border bg-surface px-3.5 py-1.5 text-xs font-medium text-muted shadow-card transition-all hover:border-muted/50 hover:text-fg"
             >
-              ▸ {s}
+              {s}
             </button>
           ))}
         </div>
       )}
 
-      <div className="space-y-0">
+      <div className="space-y-3">
         {messages.map((m, i) =>
           m.role === 'user' ? (
-            <p key={i} className="border-t border-border py-3 font-mono text-[13px] font-medium">
-              <span className="mr-2 text-[var(--accent)]">▸</span>
+            <p key={i} className="pt-1 text-[13.5px] font-semibold">
+              <span className="mr-2 font-mono text-[var(--accent)]">▸</span>
               {m.text}
             </p>
           ) : (
-            <div key={i} className="border-t border-border bg-surface px-4 py-4" style={{ boxShadow: 'inset 2px 0 0 var(--accent)' }}>
+            <div key={i} className="rounded-xl border border-border bg-surface px-4 py-4 shadow-card">
               {m.source && (
                 <Badge tone={m.source === 'ollama' ? 'accent' : 'neutral'} className="mb-2">
                   {m.source === 'ollama' ? 'Local model' : 'Deterministic'}
@@ -73,7 +73,7 @@ export function AdvisorChat({ endpoint, suggestions }: { endpoint: string; sugge
             </div>
           ),
         )}
-        {busy && <p className="border-t border-border py-3 font-mono text-[11px] uppercase tracking-[0.12em] text-muted">Working…</p>}
+        {busy && <p className="kicker py-2">Working…</p>}
       </div>
 
       <form
@@ -81,18 +81,18 @@ export function AdvisorChat({ endpoint, suggestions }: { endpoint: string; sugge
           e.preventDefault()
           ask(input)
         }}
-        className="mt-5 flex border border-fg"
+        className="mt-5 flex items-center gap-2 rounded-xl border border-border bg-surface p-1.5 shadow-card transition-shadow focus-within:border-[var(--accent)]/50 focus-within:shadow-card-hover"
       >
-        <span aria-hidden className="flex items-center pl-3 font-mono text-sm text-[var(--accent)]">▸</span>
+        <span aria-hidden className="pl-2.5 font-mono text-sm text-[var(--accent)]">▸</span>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           maxLength={500}
           aria-label="Ask the advisor"
           placeholder="Ask the advisor…"
-          className="min-w-0 flex-1 bg-transparent px-3 py-2.5 font-mono text-[13px] outline-none placeholder:text-muted/70"
+          className="min-w-0 flex-1 bg-transparent px-1 py-1.5 text-[13.5px] outline-none placeholder:text-muted/70"
         />
-        <button type="submit" disabled={busy} className="btn-ink border-y-0 border-r-0 disabled:opacity-50">
+        <button type="submit" disabled={busy} className="btn-ink disabled:opacity-50">
           Ask
         </button>
       </form>

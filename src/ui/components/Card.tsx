@@ -1,26 +1,25 @@
 import { cn } from '@/ui/cn'
 
 /**
- * Panel — the ledger's container. A hairline box with a 2px ink rule on top
- * (a print convention: rules, not shadows, create structure). No elevation,
- * no rounded-xl, no hover lift.
+ * Card — white surface, hairline border, soft layered shadow. Depth is quiet
+ * and consistent; hierarchy comes from spacing and type, not chrome.
  */
 export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('border border-border border-t-2 border-t-fg bg-surface', className)}
+      className={cn('rounded-xl border border-border bg-surface shadow-card', className)}
       {...props}
     />
   )
 }
 
 export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('border-b border-border px-5 py-3', className)} {...props} />
+  return <div className={cn('border-b border-border/70 px-5 py-3.5', className)} {...props} />
 }
 
-/** Panel titles are set as small-caps mono labels, not bold sans headings. */
+/** Card titles are quiet small-caps labels; the data carries the hierarchy. */
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn('kicker text-fg', className)} {...props} />
+  return <h3 className={cn('kicker text-fg/80', className)} {...props} />
 }
 
 export function CardBody({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
