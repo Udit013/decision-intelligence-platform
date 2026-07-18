@@ -9,7 +9,7 @@ import { cn } from '@/ui/cn'
  */
 export function KpiGrid({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-card lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border lg:grid-cols-4">
       {children}
     </div>
   )
@@ -27,7 +27,7 @@ export function Kpi({
   estimate?: boolean
 }) {
   return (
-    <div className="bg-surface px-5 py-4 transition-colors hover:bg-surface-2/40">
+    <div className="bg-surface px-5 py-4">
       <p className="kicker">
         {label}
         {estimate && <span className="ml-1.5 normal-case tracking-normal text-warn">≈ est</span>}
@@ -53,7 +53,7 @@ export function PageHeader({ title, tagline }: { title: string; tagline?: string
 /** Shown when the operations DB has no data yet. */
 export function EmptyState() {
   return (
-    <div className="rounded-xl border border-border bg-surface px-6 py-14 text-center shadow-card">
+    <div className="rounded-xl border border-border bg-surface px-6 py-14 text-center">
       <p className="kicker text-[var(--accent)]">No data yet</p>
       <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted">
         This module has no data loaded. Upload a transactions file (CSV/XLSX/JSON with invoice, SKU,

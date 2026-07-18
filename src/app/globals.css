@@ -1,45 +1,46 @@
 @import 'tailwindcss';
 
 /*
- * CoreSight IQ — premium enterprise design system.
+ * CoreSight IQ — design system.
  *
- * Cool, quiet neutrals with generous whitespace; depth comes from soft layered
- * shadows and hairlines, not heavy borders. One deep accent per module carries
- * identity; semantic colors are reserved for meaning. Type: Space Grotesk for
- * display/figures, Hanken Grotesk for UI text, IBM Plex Mono for data labels.
+ * Porcelain ground (barely warm, never pure white) with graphite ink. Structure
+ * comes from hairlines and spacing; shadows are reserved for true elevation
+ * (menus, modals). Each module carries one muted, ink-mixed accent — pine,
+ * iris, moss — used for identity and state, never decoration. Type: Space
+ * Grotesk display, Hanken Grotesk text, IBM Plex Mono data labels.
  */
 
 @theme {
   /* ── Neutrals ────────────────────────────────────────────────────────────── */
-  --color-bg: #f7f8fa;
-  --color-surface: #ffffff;
-  --color-surface-2: #f0f2f5;
-  --color-border: #e5e8ee;
-  --color-fg: #131722;
-  --color-muted: #647082;
+  --color-bg: #f5f5f2;
+  --color-surface: #fdfdfc;
+  --color-surface-2: #edede9;
+  --color-border: #e2e1da;
+  --color-fg: #1d1f21;
+  --color-muted: #6e7178;
 
   /* ── Module accents (keys are historical registry ids) ───────────────────── */
-  --color-cyan: #0d7570; /* operations — deep teal */
-  --color-violet: #6641c8; /* market — refined violet */
-  --color-lime: #1d7a4c; /* product — emerald */
+  --color-cyan: #22635f; /* operations — pine */
+  --color-violet: #55498f; /* market — iris */
+  --color-lime: #55693c; /* product — moss */
 
   /* ── Semantic (meaning only) ─────────────────────────────────────────────── */
-  --color-good: #12805c;
-  --color-warn: #b45309;
-  --color-bad: #b42318;
-  --color-info: #175cd3;
+  --color-good: #2f7a4d;
+  --color-warn: #a3611a;
+  --color-bad: #b3382c;
+  --color-info: #3c6390;
 
   /* ── Geometry ────────────────────────────────────────────────────────────── */
   --radius-sm: 4px;
   --radius-md: 6px;
-  --radius-lg: 10px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 14px;
 
-  /* ── Elevation (soft, layered — never heavy) ─────────────────────────────── */
-  --shadow-card: 0 1px 2px rgba(19, 23, 34, 0.04), 0 1px 3px rgba(19, 23, 34, 0.05);
-  --shadow-card-hover: 0 2px 4px rgba(19, 23, 34, 0.05), 0 6px 16px rgba(19, 23, 34, 0.07);
-  --shadow-pop: 0 8px 16px rgba(19, 23, 34, 0.08), 0 20px 40px rgba(19, 23, 34, 0.12);
+  /* ── Elevation — true elevation only (menus, modals, drag states) ────────── */
+  --shadow-card: none;
+  --shadow-card-hover: 0 1px 2px rgba(29, 31, 33, 0.05);
+  --shadow-pop: 0 10px 20px rgba(29, 31, 33, 0.08), 0 24px 48px rgba(29, 31, 33, 0.1);
 
   --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, 'SF Mono', monospace;
@@ -60,14 +61,9 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* A whisper of warmth at the top of every page — depth without decoration. */
-body {
-  background-image: linear-gradient(180deg, #ffffff 0%, rgba(255, 255, 255, 0) 280px);
-}
-
 ::selection {
   background: var(--color-fg);
-  color: #ffffff;
+  color: var(--color-bg);
 }
 
 /* Visible, consistent keyboard focus everywhere. */
@@ -75,6 +71,11 @@ body {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 2px;
+}
+
+/* Icons draw with a lighter hand than lucide's default 2px stroke. */
+.lucide {
+  stroke-width: 1.5px;
 }
 
 .font-mono {
@@ -90,26 +91,17 @@ body {
     @apply font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted;
   }
 
-  /* Primary action: deep slate with a soft top-light gradient. */
+  /* Primary action: flat graphite. No gradient, no glow. */
   .btn-ink {
-    @apply inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-semibold text-white transition-all;
-    background: linear-gradient(180deg, #2a3242 0%, #131722 100%);
-    box-shadow: 0 1px 2px rgba(19, 23, 34, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  }
-  .btn-ink:hover {
-    filter: brightness(1.15);
+    @apply inline-flex items-center gap-2 rounded-lg bg-fg px-4 py-2 text-[13px] font-semibold text-bg transition-[background-color,transform] duration-150 hover:bg-fg/85;
   }
   .btn-ink:active {
     transform: translateY(1px);
   }
 
-  /* Secondary action: quiet outline on white. */
+  /* Secondary action: quiet hairline. */
   .btn-line {
-    @apply inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-[13px] font-semibold text-fg transition-all;
-    box-shadow: var(--shadow-card);
-  }
-  .btn-line:hover {
-    @apply border-muted/50 bg-surface-2/60;
+    @apply inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-[13px] font-semibold text-fg transition-[border-color,background-color,transform] duration-150 hover:border-muted/40 hover:bg-surface-2/50;
   }
   .btn-line:active {
     transform: translateY(1px);

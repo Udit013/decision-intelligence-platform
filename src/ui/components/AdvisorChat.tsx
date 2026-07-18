@@ -47,7 +47,7 @@ export function AdvisorChat({ endpoint, suggestions }: { endpoint: string; sugge
             <button
               key={s}
               onClick={() => ask(s)}
-              className="rounded-full border border-border bg-surface px-3.5 py-1.5 text-xs font-medium text-muted shadow-card transition-all hover:border-muted/50 hover:text-fg"
+              className="rounded-full border border-border bg-surface px-3.5 py-1.5 text-xs font-medium text-muted transition-colors hover:border-muted/40 hover:text-fg"
             >
               {s}
             </button>
@@ -63,7 +63,7 @@ export function AdvisorChat({ endpoint, suggestions }: { endpoint: string; sugge
               {m.text}
             </p>
           ) : (
-            <div key={i} className="rounded-xl border border-border bg-surface px-4 py-4 shadow-card">
+            <div key={i} className="rounded-xl border border-border bg-surface px-4 py-4">
               {m.source && (
                 <Badge tone={m.source === 'ollama' ? 'accent' : 'neutral'} className="mb-2">
                   {m.source === 'ollama' ? 'Local model' : 'Deterministic'}
@@ -81,7 +81,7 @@ export function AdvisorChat({ endpoint, suggestions }: { endpoint: string; sugge
           e.preventDefault()
           ask(input)
         }}
-        className="mt-5 flex items-center gap-2 rounded-xl border border-border bg-surface p-1.5 shadow-card transition-shadow focus-within:border-[var(--accent)]/50 focus-within:shadow-card-hover"
+        className="mt-5 flex items-center gap-2 rounded-xl border border-border bg-surface p-1.5 transition-colors focus-within:border-[var(--accent)]/60"
       >
         <span aria-hidden className="pl-2.5 font-mono text-sm text-[var(--accent)]">▸</span>
         <input

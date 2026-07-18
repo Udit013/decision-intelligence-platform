@@ -169,8 +169,8 @@ export function DataManager() {
         className={cn(
           'flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-all',
           dragOver
-            ? 'border-[var(--accent)] bg-[var(--accent)]/[0.04] shadow-card-hover'
-            : 'border-border bg-surface shadow-card hover:border-muted/50',
+            ? 'border-[var(--accent)] bg-[var(--accent)]/[0.04]'
+            : 'border-border bg-surface hover:border-muted/40',
         )}
       >
         <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--accent)]/10">
@@ -212,7 +212,7 @@ export function DataManager() {
       {uploads.length > 0 && (
         <div className="mt-4 space-y-2">
           {uploads.map((u) => (
-            <div key={u.key} className={cn('rounded-xl border px-4 py-2.5 shadow-card', u.error ? 'border-bad/40 bg-bad/[0.04]' : 'border-border bg-surface')}>
+            <div key={u.key} className={cn('rounded-xl border px-4 py-2.5', u.error ? 'border-bad/40 bg-bad/[0.04]' : 'border-border bg-surface')}>
               <div className="flex items-center justify-between gap-3 text-sm">
                 <span className="truncate">{u.filename}</span>
                 {u.error ? (

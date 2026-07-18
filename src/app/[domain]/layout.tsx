@@ -40,7 +40,7 @@ export default async function DomainLayout({
           <div className="ml-auto flex items-center gap-3 py-3">
             <Link
               href="/data"
-              className="hidden rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-fg shadow-card transition-all hover:border-muted/50 hover:bg-surface-2/60 sm:inline-flex"
+              className="hidden rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-fg transition-colors hover:border-muted/40 hover:bg-surface-2/60 sm:inline-flex"
             >
               Upload / manage data
             </Link>

@@ -29,8 +29,8 @@ export function DomainNav({ domainId, items }: { domainId: string; items: Domain
                 className={cn(
                   'group flex items-baseline gap-2 whitespace-nowrap rounded-lg px-2.5 py-[7px] text-[13px] transition-colors duration-150',
                   active
-                    ? 'bg-surface font-semibold text-fg shadow-card'
-                    : 'font-medium text-muted hover:bg-surface-2/70 hover:text-fg',
+                    ? 'border border-border bg-surface font-semibold text-fg'
+                    : 'border border-transparent font-medium text-muted hover:bg-surface-2/70 hover:text-fg',
                 )}
               >
                 <span

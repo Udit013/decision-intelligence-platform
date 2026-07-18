@@ -14,7 +14,7 @@ export default function DomainLoading() {
       </div>
 
       {/* Figures ledger */}
-      <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-card lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="bg-surface px-5 py-4">
             <div className="h-2.5 w-16 animate-pulse rounded bg-surface-2" />
@@ -24,7 +24,7 @@ export default function DomainLoading() {
       </div>
 
       {/* Main panel */}
-      <div className="mt-6 rounded-xl border border-border bg-surface shadow-card">
+      <div className="mt-6 rounded-xl border border-border bg-surface">
         <div className="border-b border-border px-5 py-3">
           <div className="h-3 w-36 animate-pulse rounded bg-surface-2" />
         </div>

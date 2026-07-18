@@ -1,13 +1,13 @@
 import { cn } from '@/ui/cn'
 
 /**
- * Card — white surface, hairline border, soft layered shadow. Depth is quiet
- * and consistent; hierarchy comes from spacing and type, not chrome.
+ * Card — off-white surface with a hairline border. Structure comes from
+ * spacing and type, not shadows or chrome.
  */
 export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('rounded-xl border border-border bg-surface shadow-card', className)}
+      className={cn('rounded-xl border border-border bg-surface', className)}
       {...props}
     />
   )

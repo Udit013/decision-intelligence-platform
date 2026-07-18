@@ -4,24 +4,24 @@
  * system as the UI.
  */
 export const CHART = {
-  ink: '#131722', // primary series / labels
-  muted: '#647082', // axis labels, legends
-  grid: '#eceef2', // split lines (hairline)
-  axis: '#d8dce4', // axis lines
+  ink: '#1d1f21', // primary series / labels
+  muted: '#6e7178', // axis labels, legends
+  grid: '#e9e8e2', // split lines (hairline)
+  axis: '#d6d5cd', // axis lines
   tooltipBg: '#ffffff',
-  tooltipBorder: '#e5e8ee',
+  tooltipBorder: '#e2e1da',
 } as const
 
 /** Module accents (keys are historical registry ids). */
 export const ACCENT = {
-  cyan: '#0d7570', // operations — deep teal
-  violet: '#6641c8', // market — refined violet
-  lime: '#1d7a4c', // product — emerald
+  cyan: '#22635f', // operations — pine
+  violet: '#55498f', // market — iris
+  lime: '#55693c', // product — moss
 } as const
 
 /** Translucent area fill for a given accent (line-chart bands). */
 export const ACCENT_FILL = {
-  cyan: 'rgba(13,117,112,0.09)',
-  violet: 'rgba(102,65,200,0.09)',
-  lime: 'rgba(29,122,76,0.09)',
+  cyan: 'rgba(34,99,95,0.08)',
+  violet: 'rgba(85,73,143,0.08)',
+  lime: 'rgba(85,105,60,0.08)',
 } as const

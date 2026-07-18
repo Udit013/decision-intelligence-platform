@@ -25,8 +25,8 @@ export function Docket({ decisions }: { decisions: Recommendation[] }) {
   return (
     <ol>
       {decisions.map((d) => (
-        <li key={d.id} className="grid grid-cols-[2.6rem_1fr] gap-x-3 border-b border-border/70 py-4 transition-colors last:border-b-0 hover:bg-surface-2/30">
-          <span className="font-display text-[24px] font-semibold leading-none tracking-tight text-muted/50">
+        <li key={d.id} className="grid grid-cols-[2.6rem_1fr] gap-x-3 border-b border-border/70 py-4 last:border-b-0">
+          <span className="font-display text-[24px] font-semibold leading-none tracking-tight text-muted/40">
             {String(d.priority).padStart(2, '0')}
           </span>
           <div className="min-w-0">

@@ -90,7 +90,7 @@ export default function Home() {
                 <li key={d.id} className="border-b border-border">
                   <Link
                     href={`/${d.id}`}
-                    className="group -mx-3 flex gap-4 rounded-xl px-3 py-4 transition-all hover:bg-surface hover:shadow-card"
+                    className="group -mx-3 flex gap-4 rounded-xl px-3 py-4 transition-colors hover:bg-surface"
                     style={{ ['--m' as string]: ACCENT_HEX[d.accent] }}
                   >
                     <span className="font-mono text-[11px] font-medium text-[color:var(--m)]">
@@ -153,7 +153,7 @@ export default function Home() {
         {/* ── Honest numbers note + getting started ── */}
         <section className="grid gap-10 border-b border-border py-14 lg:grid-cols-12">
           <figure className="lg:col-span-5">
-            <blockquote className="rounded-r-xl border-l-2 border-[var(--color-cyan)] bg-surface py-4 pl-5 pr-5 shadow-card">
+            <blockquote className="rounded-r-xl border-l-2 border-[var(--color-cyan)] bg-surface py-4 pl-5 pr-5">
               <p className="font-display text-[18px] font-medium leading-snug">
                 “On this spiky real series the forecast barely beats a naive mean — R² ≈ 0.07. The old
                 claim of 0.90 was never reproduced, so it isn&apos;t here.”
