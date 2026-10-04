@@ -14,6 +14,12 @@ import * as XLSX from 'xlsx'
 export const MAX_FILE_BYTES = 4 * 1024 * 1024 // 4MB — under Vercel's request cap
 export const MAX_FILE_LABEL = '4 MB'
 export const SAMPLE_ROW_LIMIT = 100
+/** Upper bound on parsed rows. A 4 MB .xlsx is a ZIP that can expand to millions of cells. */
+export const MAX_PARSE_ROWS = 100_000
+/** Workspace-wide caps. The upload API is unauthenticated, so storage must be bounded. */
+export const MAX_WORKSPACE_FILES = 200
+export const MAX_WORKSPACE_BYTES = 100 * 1024 * 1024
+export const MAX_NAME_LENGTH = 200
 export const TEXT_PREVIEW_CHARS = 2000
 
 export type FileFormat = 'csv' | 'xlsx' | 'json' | 'pdf' | 'txt' | 'docx'
@@ -50,6 +56,17 @@ export function isTabular(format: FileFormat): boolean {
 }
 
 /** Validate name + size before any parsing. Returns an error message or null. */
+/** Returns an error if adding `incomingBytes` would exceed the workspace caps. */
+export function quotaError(usage: { files: number; bytes: number }, incomingBytes: number): string | null {
+  if (usage.files >= MAX_WORKSPACE_FILES) {
+    return `The workspace is full (${MAX_WORKSPACE_FILES} files). Delete files you no longer need, then retry.`
+  }
+  if (usage.bytes + incomingBytes > MAX_WORKSPACE_BYTES) {
+    return `The workspace storage limit (${formatBytes(MAX_WORKSPACE_BYTES)}) would be exceeded. Delete files you no longer need, then retry.`
+  }
+  return null
+}
+
 export function validateUpload(filename: string, sizeBytes: number): string | null {
   const format = detectFormat(filename)
   if (!format) {
@@ -101,6 +118,9 @@ export function parseBuffer(format: FileFormat, buf: Uint8Array): ParseResult {
 function toTable(rows: Record<string, unknown>[], columns: string[]): ParseResult {
   if (!rows.length) return { error: 'No data rows found.' }
   if (!columns.length) return { error: 'No columns detected (is the header row missing?).' }
+  if (rows.length > MAX_PARSE_ROWS) {
+    return { error: `More than ${MAX_PARSE_ROWS.toLocaleString('en-US')} rows — too large for in-app upload. Use the CLI ETL for bulk loads.` }
+  }
   return {
     table: { columns, rowCount: rows.length, sampleRows: rows.slice(0, SAMPLE_ROW_LIMIT), rows },
   }
@@ -133,7 +153,19 @@ function parseJson(text: string): ParseResult {
 }
 
 function parseXlsx(buf: Uint8Array): ParseResult {
-  const wb = XLSX.read(buf, { type: 'array', cellDates: true })
+  // Untrusted input: decode only the first sheet, stop one row past the cap so
+  // oversize files are detected without expanding them fully, and skip formula,
+  // HTML, and style decoding the platform never uses.
+  const wb = XLSX.read(buf, {
+    type: 'array',
+    cellDates: true,
+    sheets: 0,
+    sheetRows: MAX_PARSE_ROWS + 2,
+    cellFormula: false,
+    cellHTML: false,
+    cellStyles: false,
+    dense: true,
+  })
   const sheetName = wb.SheetNames[0]
   if (!sheetName) return { error: 'Workbook has no sheets.' }
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[sheetName], { defval: null })

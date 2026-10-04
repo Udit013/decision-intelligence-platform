@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import * as XLSX from 'xlsx'
-import { detectFormat, validateUpload, parseBuffer, isTabular, MAX_FILE_BYTES } from './index'
+import {
+  detectFormat, validateUpload, parseBuffer, isTabular, quotaError,
+  MAX_FILE_BYTES, MAX_WORKSPACE_FILES, MAX_WORKSPACE_BYTES, MAX_PARSE_ROWS,
+} from './index'
 
 const enc = (s: string) => new TextEncoder().encode(s)
 
@@ -87,5 +90,44 @@ describe('parseBuffer — documents', () => {
   it('pdf/docx are stored without parsing', () => {
     expect(parseBuffer('pdf', enc('%PDF-1.4'))).toEqual({})
     expect(parseBuffer('docx', enc('PK'))).toEqual({})
+  })
+})
+
+describe('quotaError', () => {
+  it('allows uploads within both caps', () => {
+    expect(quotaError({ files: 0, bytes: 0 }, MAX_FILE_BYTES)).toBeNull()
+    expect(quotaError({ files: MAX_WORKSPACE_FILES - 1, bytes: MAX_WORKSPACE_BYTES - 10 }, 10)).toBeNull()
+  })
+  it('rejects once the file count is reached', () => {
+    expect(quotaError({ files: MAX_WORKSPACE_FILES, bytes: 0 }, 1)).toMatch(/workspace is full/)
+  })
+  it('rejects when the new bytes would exceed the storage cap', () => {
+    expect(quotaError({ files: 1, bytes: MAX_WORKSPACE_BYTES - 10 }, 11)).toMatch(/storage limit/)
+  })
+})
+
+describe('untrusted tabular input limits', () => {
+  it('rejects a workbook above the parse row cap without fully expanding it', () => {
+    const rows = Array.from({ length: MAX_PARSE_ROWS + 5 }, (_, i) => [i])
+    const ws = XLSX.utils.aoa_to_sheet([['n'], ...rows])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Big')
+    const buf = new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }))
+    expect(parseBuffer('xlsx', buf).error).toMatch(/More than/)
+  })
+
+  it('parses only the first sheet of a multi-sheet workbook', () => {
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ a: 1 }, { a: 2 }]), 'First')
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ z: 9 }]), 'Second')
+    const buf = new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }))
+    const res = parseBuffer('xlsx', buf)
+    expect(res.table?.columns).toEqual(['a'])
+    expect(res.table?.rowCount).toBe(2)
+  })
+
+  it('rejects CSV above the parse row cap', () => {
+    const csv = 'n,m\n' + Array.from({ length: MAX_PARSE_ROWS + 1 }, (_, i) => `${i},${i}`).join('\n')
+    expect(parseBuffer('csv', enc(csv)).error).toMatch(/More than/)
   })
 })

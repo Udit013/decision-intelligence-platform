@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server'
 import { eq } from 'drizzle-orm'
 import { getDb } from '@/db'
 import { workspaceFiles } from '@/db/schema'
+import { MAX_NAME_LENGTH } from '@/core/workspace'
 import { toDto, badRequest, isScope, dbUnavailable } from '../../_lib'
 
 type Ctx = { params: Promise<{ id: string }> }
@@ -35,7 +36,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   const updates: Partial<{ name: string; scope: string; updatedAt: Date }> = {}
   if (body.name !== undefined) {
     const name = typeof body.name === 'string' ? body.name.trim() : ''
-    if (!name || name.length > 200) return badRequest('Name must be 1–200 characters.')
+    if (!name || name.length > MAX_NAME_LENGTH) return badRequest(`Name must be 1–${MAX_NAME_LENGTH} characters.`)
     updates.name = name
   }
   if (body.scope !== undefined) {

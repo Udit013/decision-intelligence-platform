@@ -38,8 +38,9 @@ export async function GET() {
       { status: status === 'ok' ? 200 : 503 },
     )
   } catch (e) {
+    console.error('[operations-health]', e)
     return NextResponse.json(
-      { status: 'error', error: (e as Error).message, latencyMs: Date.now() - started },
+      { status: 'error', error: 'database unreachable', latencyMs: Date.now() - started },
       { status: 503 },
     )
   }

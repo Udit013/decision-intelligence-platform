@@ -7,8 +7,8 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/db'
 import { workspaceFiles } from '@/db/schema'
-import { validateUpload, detectFormat, parseBuffer } from '@/core/workspace'
-import { toDto, badRequest, isScope, dbUnavailable } from '../_lib'
+import { validateUpload, detectFormat, parseBuffer, quotaError, MAX_NAME_LENGTH } from '@/core/workspace'
+import { toDto, badRequest, isScope, dbUnavailable, workspaceUsage } from '../_lib'
 
 export const maxDuration = 30
 
@@ -34,11 +34,14 @@ export async function POST(req: Request) {
 
   try {
     const db = getDb()
+    const overQuota = quotaError(await workspaceUsage(db), file.size)
+    if (overQuota) return NextResponse.json({ error: overQuota }, { status: 413 })
+
     const [row] = await db
       .insert(workspaceFiles)
       .values({
-        name: file.name.replace(/\.[^.]+$/, ''),
-        originalFilename: file.name,
+        name: file.name.replace(/\.[^.]+$/, '').slice(0, MAX_NAME_LENGTH) || 'untitled',
+        originalFilename: file.name.slice(0, 255),
         format,
         sizeBytes: file.size,
         scope: scopeRaw,

@@ -1,6 +1,8 @@
 /** Shared helpers for the Data Workspace API routes. */
 import { NextResponse } from 'next/server'
-import type { workspaceFiles } from '@/db/schema'
+import { sql } from 'drizzle-orm'
+import type { getDb } from '@/db'
+import { workspaceFiles } from '@/db/schema'
 import { SCOPES, type FileScope } from '@/core/workspace'
 
 export type WorkspaceFileRow = typeof workspaceFiles.$inferSelect
@@ -36,10 +38,22 @@ export function isScope(v: unknown): v is FileScope {
   return typeof v === 'string' && (SCOPES as string[]).includes(v)
 }
 
-/** Uniform 503 when DATABASE_URL is missing/unreachable. */
+/** Uniform 503 for storage failures. Details stay in server logs, never the response. */
 export function dbUnavailable(e: unknown) {
+  console.error('[data-workspace]', e)
   return NextResponse.json(
-    { error: `Data workspace needs a database: ${(e as Error).message}` },
+    { error: 'The data workspace is temporarily unavailable. Please try again shortly.' },
     { status: 503 },
   )
+}
+
+/** Current workspace footprint, for quota checks. */
+export async function workspaceUsage(db: ReturnType<typeof getDb>) {
+  const [u] = await db
+    .select({
+      files: sql<number>`count(*)::int`,
+      bytes: sql<number>`coalesce(sum(${workspaceFiles.sizeBytes}), 0)::bigint`,
+    })
+    .from(workspaceFiles)
+  return { files: Number(u.files), bytes: Number(u.bytes) }
 }

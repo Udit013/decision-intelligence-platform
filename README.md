@@ -88,12 +88,16 @@ reprocessed, and deleted.
 
 - **Formats:** CSV, XLSX, JSON (parsed into columns/rows, previewable),
   TXT (stored with text preview), PDF/DOCX (stored as reference documents).
-  Max **4 MB** per file — the UI states exactly how each format is processed.
+  Max **4 MB** per file and **100,000 parsed rows**; Excel workbooks are read
+  first-sheet-only. The UI states exactly how each format is processed.
 - **Operations ingest:** a tabular file with order lines (invoice, SKU,
   quantity, price, date — headers auto-detected, e.g. `Order ID`/`InvoiceNo`)
   can be loaded into the Operations analytics with one click (≤25k rows in-app;
-  bigger loads via the CLI ETL). Ingest is guarded against double-loading, and
-  the analytics caches refresh immediately.
+  bigger loads via the CLI ETL). The load is **all-or-nothing** (one database
+  transaction), concurrent requests can't double-load a file, and the analytics
+  caches refresh immediately.
+- **Workspace limits:** 200 files / 100 MB in total, so an open deployment
+  can't be filled by repeated uploads. Delete files to free space.
 
 **CLI — bulk loads.** For the full ~1M-row dataset (or your own large exports),
 run the ETL below; it prints a **data-quality report before it writes anything**.
@@ -156,11 +160,39 @@ constant.
 ↳ `npx tsx scripts/product-metrics.ts`
 
 **The harness can fail — proof included.** [`scripts/harness-demo.ts`](scripts/harness-demo.ts)
-runs the real harness on adversarial inputs: white-noise forecast **MAPE ~68%,
-R² −0.17**; structural-break **MAPE ~109%**; an overconfident classifier **ECE
-0.77, Brier 0.74**. A harness that ships with a reproducible proof it can fail is
+runs the real harness on adversarial inputs: white-noise forecast (5-fold
+walk-forward) **MAPE 66.9%, R² −0.235**; structural-break **MAPE 86.1%**; an
+overconfident classifier **ECE 0.77, Brier 0.74**. A harness that ships with a reproducible proof it can fail is
 more credible than one that only claims to work.
 ↳ `npx tsx scripts/harness-demo.ts`
+
+---
+
+## Security & data integrity
+
+The platform has no login (by design, for an open deployment), so the write
+APIs are hardened instead:
+
+- **Untrusted file parsing** — size, format, and row caps; Excel parsing skips
+  formulas/HTML/styles and decodes only the first sheet. SheetJS is installed
+  from its vendor's patched release (`xlsx` 0.20.3, Apache-2.0) because the npm
+  registry copy (0.18.5) carries unfixed prototype-pollution and ReDoS
+  advisories; the lockfile pins its sha512 hash.
+- **Ingest integrity** — an atomic `UPDATE … WHERE ingested_at IS NULL` claim
+  serializes ingests of a file; all inserts run in one `db.batch()` transaction
+  (Neon's HTTP driver has no interactive transactions) and the claim is
+  released on failure. Re-parsing a file never re-opens it for ingest; only
+  replacing its bytes does.
+- **No internal detail in responses** — database errors are logged server-side
+  and clients receive a generic 503.
+- **Headers** — HSTS, `X-Frame-Options: DENY`, `nosniff`, a strict referrer
+  policy and a locked-down `Permissions-Policy` on every response.
+- `npm audit --omit=dev` reports **0** production vulnerabilities.
+
+Known gaps: no authentication or rate limiting on uploads (bounded by the
+workspace quota), no Content-Security-Policy yet, and ingested rows aren't
+tagged with their source file, so two different files with overlapping orders
+can double-count.
 
 ---
 
@@ -205,7 +237,7 @@ latency.
 | Command | What |
 |---|---|
 | `npm run dev` / `build` / `start` | Next app |
-| `npm test` | core + domain unit tests (vitest) — 85 tests |
+| `npm test` | core + domain unit tests (vitest) — 111 tests |
 | `npm run typecheck` / `lint` | static checks |
 | `npm run db:push` | push the unified Drizzle schema |
 | `npx tsx scripts/harness-demo.ts` | validation-harness failure proof |

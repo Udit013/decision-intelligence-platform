@@ -9,7 +9,8 @@
  */
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
+import type { BatchItem } from 'drizzle-orm/batch'
 import { getDb } from '@/db'
 import {
   workspaceFiles,
@@ -25,8 +26,12 @@ import { badRequest, dbUnavailable } from '../../../_lib'
 
 export const maxDuration = 60
 
-async function chunkInsert<T>(rows: T[], size: number, fn: (batch: T[]) => Promise<unknown>) {
-  for (let i = 0; i < rows.length; i += size) await fn(rows.slice(i, i + size))
+const CHUNK = 1000
+
+function chunks<T>(rows: T[]): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < rows.length; i += CHUNK) out.push(rows.slice(i, i + CHUNK))
+  return out
 }
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -61,19 +66,38 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const rec = buildRecords(parsed.table.rows, mapping)
     if (!rec.lines.length) return badRequest(`No valid rows after validation (${rec.skipped} skipped — check number and date formats).`)
 
-    await chunkInsert(rec.products, 1000, (b) => db.insert(operationsProducts).values(b).onConflictDoNothing())
-    await chunkInsert(rec.customers, 1000, (b) => db.insert(operationsCustomers).values(b).onConflictDoNothing())
-    await chunkInsert(rec.invoices, 1000, (b) => db.insert(operationsInvoices).values(b).onConflictDoNothing())
-    await chunkInsert(rec.lines, 1000, (b) => db.insert(operationsInvoiceLines).values(b))
+    // Claim the file atomically so concurrent requests (double-click, retries)
+    // cannot both pass the ingestedAt guard and double-insert lines.
+    const claimed = await db
+      .update(workspaceFiles)
+      .set({ ingestedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(workspaceFiles.id, id), isNull(workspaceFiles.ingestedAt)))
+      .returning({ id: workspaceFiles.id })
+    if (!claimed.length) {
+      return NextResponse.json({ error: 'This file is already being ingested or was ingested.' }, { status: 409 })
+    }
 
-    await db.insert(operationsEtlLogs).values({
-      source: `workspace upload: ${file.name} (${file.originalFilename})`,
-      totalRows: parsed.table.rowCount,
-      insertedRows: rec.lines.length,
-      skippedRows: rec.skipped,
-      notes: `in-app ingest; file ${file.id}`,
-    })
-    await db.update(workspaceFiles).set({ ingestedAt: new Date(), updatedAt: new Date() }).where(eq(workspaceFiles.id, id))
+    // neon-http has no interactive transactions; batch() runs as one transaction,
+    // so a failure mid-load leaves no partial rows behind.
+    try {
+      const inserts: BatchItem<'pg'>[] = [
+        ...chunks(rec.products).map((b) => db.insert(operationsProducts).values(b).onConflictDoNothing()),
+        ...chunks(rec.customers).map((b) => db.insert(operationsCustomers).values(b).onConflictDoNothing()),
+        ...chunks(rec.invoices).map((b) => db.insert(operationsInvoices).values(b).onConflictDoNothing()),
+        ...chunks(rec.lines).map((b) => db.insert(operationsInvoiceLines).values(b)),
+      ]
+      const etlLog = db.insert(operationsEtlLogs).values({
+        source: `workspace upload: ${file.name} (${file.originalFilename})`,
+        totalRows: parsed.table.rowCount,
+        insertedRows: rec.lines.length,
+        skippedRows: rec.skipped,
+        notes: `in-app ingest; file ${file.id}`,
+      })
+      await db.batch([etlLog, ...inserts])
+    } catch (e) {
+      await db.update(workspaceFiles).set({ ingestedAt: null }).where(eq(workspaceFiles.id, id))
+      throw e
+    }
 
     revalidateTag('operations', 'max') // analytics caches refresh immediately
 

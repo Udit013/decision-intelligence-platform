@@ -9,8 +9,8 @@ import { NextResponse } from 'next/server'
 import { eq } from 'drizzle-orm'
 import { getDb } from '@/db'
 import { workspaceFiles } from '@/db/schema'
-import { parseBuffer, validateUpload, detectFormat, type FileFormat } from '@/core/workspace'
-import { toDto, badRequest, dbUnavailable } from '../../../_lib'
+import { parseBuffer, validateUpload, detectFormat, quotaError, type FileFormat } from '@/core/workspace'
+import { toDto, badRequest, dbUnavailable, workspaceUsage } from '../../../_lib'
 
 export const maxDuration = 30
 
@@ -27,6 +27,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     let bytes: Uint8Array
     let sizeBytes = existing.sizeBytes
     let originalFilename = existing.originalFilename
+    let replaced = false
 
     const contentType = req.headers.get('content-type') ?? ''
     if (contentType.includes('multipart/form-data')) {
@@ -35,10 +36,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       if (!(file instanceof File)) return badRequest('Missing "file" field for replace.')
       const invalid = validateUpload(file.name, file.size)
       if (invalid) return badRequest(invalid)
+      const usage = await workspaceUsage(db)
+      // Replacing keeps the file count; only the byte delta counts against the quota.
+      const overQuota = quotaError({ files: 0, bytes: usage.bytes - existing.sizeBytes }, file.size)
+      if (overQuota) return NextResponse.json({ error: overQuota }, { status: 413 })
       format = detectFormat(file.name)!
       bytes = new Uint8Array(await file.arrayBuffer())
       sizeBytes = file.size
-      originalFilename = file.name
+      originalFilename = file.name.slice(0, 255)
+      replaced = true
     } else {
       bytes = new Uint8Array(Buffer.from(existing.rawBase64, 'base64'))
     }
@@ -57,7 +63,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         sampleRows: parsed.table?.sampleRows ?? null,
         textPreview: parsed.textPreview ?? null,
         rawBase64: Buffer.from(bytes).toString('base64'),
-        ingestedAt: null, // new/reparsed content has not been ingested
+        // Only new bytes reset the ingest guard; re-parsing the same bytes must not
+        // allow the identical rows to be ingested a second time.
+        ...(replaced ? { ingestedAt: null } : {}),
         updatedAt: new Date(),
       })
       .where(eq(workspaceFiles.id, id))

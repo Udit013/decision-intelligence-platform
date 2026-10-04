@@ -2,7 +2,7 @@ import type { ReportDoc } from '@/core/report'
 import { buildSnapshot } from '../snapshot'
 import { OPERATIONS_META, MEASURED_FORECAST_ACCURACY } from '../config'
 import { gbp } from '../format'
-import { ReportButton } from './ReportButton'
+import { ReportButton } from '@/ui/components/ReportButton'
 import { Card, CardBody } from '@/ui/components/Card'
 import { PageHeader, EmptyState } from '@/ui/components/Kpi'
 
@@ -69,7 +69,7 @@ export default async function Reports() {
             <p className="text-sm">One-click executive summary: KPIs, ranked decisions, and honest forecast accuracy.</p>
             <p className="mt-1 text-xs text-muted">{OPERATIONS_META.dataNote}</p>
           </div>
-          <ReportButton doc={doc} />
+          <ReportButton doc={doc} filename="operations-executive-report.pdf" />
         </CardBody>
       </Card>
     </>
