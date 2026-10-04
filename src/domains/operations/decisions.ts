@@ -50,7 +50,7 @@ export function buildOperationsDecisions(inp: DecisionInputs): Recommendation[] 
     signals.push({
       id: 'customer-winback',
       category: 'Customer',
-      title: `Win back ${inp.customers.atRiskCount} at-risk customers`,
+      title: `Win back ${inp.customers.atRiskCount} at-risk customer${inp.customers.atRiskCount === 1 ? '' : 's'}`,
       recommendation: `Target at-risk / hibernating customers with a personalized win-back before their value lapses.`,
       expectedResult: `Recover up to ${money(inp.customers.atRiskValue)} predicted value`,
       confidence: 0.7,
@@ -63,7 +63,7 @@ export function buildOperationsDecisions(inp: DecisionInputs): Recommendation[] 
     signals.push({
       id: 'customer-vip',
       category: 'Customer',
-      title: `Protect ${inp.customers.vipCount} VIP customers`,
+      title: `Protect ${inp.customers.vipCount} VIP customer${inp.customers.vipCount === 1 ? '' : 's'}`,
       recommendation: `Enroll Champions/Loyal in loyalty / early-access to defend ${money(inp.customers.vipValue)} of value.`,
       expectedResult: `Defend ${money(inp.customers.vipValue)} VIP value`,
       confidence: 0.75,
