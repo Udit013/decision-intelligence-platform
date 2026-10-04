@@ -20,13 +20,19 @@ const PHASE: Record<string, string> = {
   product: 'Phase 4',
 }
 
-export default async function DomainHome({ params }: { params: Promise<{ domain: string }> }) {
+export default async function DomainHome({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ domain: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   const { domain } = await params
   const mod = getDomain(domain)
   if (!mod) notFound()
 
   const page = resolvePage(mod.id, '')
-  if (page) return createElement(page)
+  if (page) return createElement(page, { searchParams: await searchParams })
 
   const home = mod.nav[0]
   return <Placeholder title={home.label} tagline={mod.tagline} phase={PHASE[mod.id] ?? 'a later phase'} />

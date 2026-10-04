@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { answer, sanitizeQuestion, MAX_QUESTION_LENGTH } from '@/core/advisor'
 import { buildSnapshot } from '@/domains/operations/snapshot'
+import { opsSource } from '@/domains/operations/source'
 import { ADVISOR_PERSONA, buildOpsContext, OPS_RULES, opsFallback, type OpsSnapshot } from '@/domains/operations/advisor'
 
 export async function POST(req: Request) {
@@ -10,15 +11,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `question required (1–${MAX_QUESTION_LENGTH} chars)` }, { status: 400 })
   }
 
-  const snap = await buildSnapshot()
+  const { ws, symbol } = await opsSource()
+  const snap = ws ? await buildSnapshot(ws, symbol) : null
   if (!snap) {
     return NextResponse.json({
-      text: 'No operations data is loaded yet. Run the ETL (scripts/etl-operations.ts) so I can answer from real data.',
+      text: 'No operations data is loaded for this view yet. Import order lines in the Data Manager (or switch to the sample data) and ask again.',
       source: 'deterministic',
     })
   }
 
   const ops: OpsSnapshot = {
+    currency: snap.currency,
     forecast: {
       projectedTotal: snap.projectedTotal,
       trendPerStep: snap.fc.trendPerStep,

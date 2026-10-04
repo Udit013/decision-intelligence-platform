@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server'
 import { answer, sanitizeQuestion, MAX_QUESTION_LENGTH } from '@/core/advisor'
-import { USER_COUNT } from '@/domains/product/generator'
-import { buildRetention, buildFunnel } from '@/domains/product/analytics'
+import { getProductDataset } from '@/domains/product/dataset'
 import { rankInitiatives } from '@/domains/product/prioritization'
-import { getExperiments } from '@/domains/product/experiments'
 import { ADVISOR_PERSONA, buildProductContext, PRODUCT_RULES, productFallback, type ProductAdvisorSnapshot } from '@/domains/product/advisor'
 
 export async function POST(req: Request) {
@@ -13,21 +11,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `question required (1–${MAX_QUESTION_LENGTH} chars)` }, { status: 400 })
   }
 
-  const { pooled } = buildRetention()
-  const { steps } = buildFunnel()
+  const ds = await getProductDataset()
+  if (!ds.hasEvents && !ds.hasExperiments && !ds.hasBacklog) {
+    return NextResponse.json({
+      text: 'No product data is loaded for this view yet. Import events, experiment results or a backlog in the Data Manager (or switch to the sample data) and ask again.',
+      source: 'deterministic',
+    })
+  }
+  const steps = ds.funnel?.steps ?? []
   let worst = { from: '', to: '', drop: 0 }
   for (let i = 1; i < steps.length; i++) {
     const drop = Math.round((100 - steps[i].conversionFromPrev) * 10) / 10
     if (drop > worst.drop) worst = { from: steps[i - 1].step, to: steps[i].step, drop }
   }
-  const top = rankInitiatives('rice')[0]
-  const winners = getExperiments().filter((e) => e.stats.verdict === 'winner').map((e) => ({ name: e.name, lift: e.stats.liftPercent }))
+  const top = ds.initiatives.length ? rankInitiatives('rice', ds.initiatives)[0] : null
+  const winners = ds.experiments.filter((e) => e.stats.verdict === 'winner').map((e) => ({ name: e.name, lift: e.stats.liftPercent }))
 
   const snap: ProductAdvisorSnapshot = {
-    userCount: USER_COUNT,
-    retention: pooled,
+    demo: ds.source.kind === 'demo',
+    userCount: ds.userCount,
+    retention: ds.retention.pooled,
     funnelWorst: worst,
-    topInitiative: { name: top.name, rice: top.rice, tier: top.tier },
+    topInitiative: top ? { name: top.name, rice: top.rice, tier: top.tier } : null,
     winners,
   }
 

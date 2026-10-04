@@ -1,38 +1,53 @@
-import { generateMarkets, generateCompetitiveData } from '../generator'
+import { getMarketDataset } from '../dataset'
 import { generateMarketDecisions, generateEntryStrategies, computeRiskProfile } from '../scoring'
 import { MARKET_META } from '../config'
-import { usdFromThousands } from '../format'
+import { usdFromThousands, num } from '../format'
 import { Card, CardBody, CardHeader, CardTitle } from '@/ui/components/Card'
 import { Badge } from '@/ui/components/Badge'
-import { PageHeader } from '@/ui/components/Kpi'
+import { PageHeader, EmptyState } from '@/ui/components/Kpi'
 import { DemoBanner } from '@/ui/components/DemoBanner'
 
-export default function EntryStrategy() {
-  const markets = generateMarkets()
-  const competitive = generateCompetitiveData()
+export default async function EntryStrategy() {
+  const ds = await getMarketDataset()
+  if (!ds.markets.length) {
+    return (
+      <>
+        <PageHeader title="Entry Strategy" tagline="Ranked entry routes for the top market." />
+        <EmptyState domain="market" />
+      </>
+    )
+  }
+  const { markets, competitive } = ds
   const decisions = generateMarketDecisions(markets, competitive)
   const topId = decisions[0].marketId
   const market = markets.find((m) => m.id === topId)!
-  const comp = competitive.find((c) => c.marketId === topId)!
+  const comp = competitive.find((c) => c.marketId === topId)
   const strategies = generateEntryStrategies(market, comp)
   const risk = computeRiskProfile(market, comp)
 
-  const riskDims: [string, number][] = [
+  const riskDims: [string, number | null][] = [
     ['Economic', risk.economic], ['Competitive', risk.competitive], ['Regulatory', risk.regulatory], ['Operational', risk.operational], ['Market', risk.market],
   ]
 
   return (
     <>
       <PageHeader title="Entry Strategy" tagline={`Ranked entry routes for the top market — ${market.name}.`} />
-      <DemoBanner note={MARKET_META.demoNote} />
+      {ds.source.kind === 'demo' && <DemoBanner note={MARKET_META.demoNote} />}
 
       <Card>
         <CardHeader className="flex items-center justify-between">
           <CardTitle>Entry strategies for {market.name} — ranked by core/scoreAndClassify</CardTitle>
-          <Badge tone="bad">overall risk {risk.overall} ~mod</Badge>
+          <Badge tone="bad">overall risk {num(risk.overall)} ~mod</Badge>
         </CardHeader>
-        <CardBody>
-          <table className="w-full text-sm">
+        <CardBody className="overflow-x-auto">
+          {!strategies.length && (
+            <p className="text-sm leading-relaxed text-muted">
+              Entry routes are ranked on modeled risk, which needs at least one of: currency stability, inflation, ease of
+              business, tax rate, purchasing power, internet, urbanization, mobile adoption, or competitor shares for{' '}
+              {market.name}.
+            </p>
+          )}
+          {strategies.length > 0 && <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left font-mono text-[10px] uppercase tracking-widest text-muted">
                 <th className="py-2">#</th>
@@ -55,7 +70,7 @@ export default function EntryStrategy() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table>}
         </CardBody>
       </Card>
 
@@ -66,9 +81,9 @@ export default function EntryStrategy() {
             <div key={label} className="flex items-center gap-3">
               <span className="w-28 text-sm text-muted">{label}</span>
               <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
-                <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${v}%` }} />
+                <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${v ?? 0}%` }} />
               </div>
-              <span className="w-8 text-right text-sm tabular-nums">{v}</span>
+              <span className="w-8 text-right text-sm tabular-nums" title={v === null ? 'No inputs for this dimension' : undefined}>{num(v)}</span>
             </div>
           ))}
           {risk.mitigations.length > 0 && (

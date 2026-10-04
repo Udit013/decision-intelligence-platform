@@ -1,10 +1,9 @@
 /**
  * Opportunity discovery — surfaces product signals from the synthetic analytics
- * (low-adoption core features, the biggest funnel drop-off, weak retention).
- * DEMO data; scores are modeled.
+ * (low-adoption core features, the biggest funnel drop-off, weak retention) —
+ * from the sample or from imported events. Opportunity scores are modeled.
  */
-import { buildAdoption, buildFunnel, buildRetention } from './analytics'
-import { USER_COUNT } from './generator'
+import type { ProductInsights } from './insights'
 
 export interface ProductOpportunity {
   id: string
@@ -15,23 +14,23 @@ export interface ProductOpportunity {
   affectedUsers: number
 }
 
-export function discoverOpportunities(): ProductOpportunity[] {
+export function discoverOpportunities(ins: ProductInsights): ProductOpportunity[] {
   const out: ProductOpportunity[] = []
 
   // Core features with weak adoption.
-  for (const f of buildAdoption().filter((a) => a.isCore && a.adoptionPct < 40)) {
+  for (const f of ins.adoption.filter((a) => a.isCore && a.adoptionPct < 40)) {
     out.push({
       id: `adopt-${f.slug}`,
       type: 'High demand · low adoption',
       title: `${f.name} is core but under-adopted (${f.adoptionPct}%)`,
       description: `Only ${f.adoptionPct}% of users have used ${f.name}, a core feature. Surface it in onboarding.`,
       score: Math.round(70 + (40 - f.adoptionPct)),
-      affectedUsers: Math.round(USER_COUNT * (1 - f.adoptionPct / 100)),
+      affectedUsers: Math.round(ins.userCount * (1 - f.adoptionPct / 100)),
     })
   }
 
   // Biggest funnel drop-off.
-  const { steps } = buildFunnel()
+  const steps = ins.funnel?.steps ?? []
   let worst = { from: '', to: '', drop: 0, idx: 0 }
   for (let i = 1; i < steps.length; i++) {
     const drop = 100 - steps[i].conversionFromPrev
@@ -49,15 +48,15 @@ export function discoverOpportunities(): ProductOpportunity[] {
   }
 
   // Retention risk (low D30).
-  const d30 = buildRetention().pooled.find((p) => p.offset === 30)?.ratePct ?? 0
-  if (d30 < 40) {
+  const d30 = ins.retention.pooled.find((p) => p.offset === 30)?.ratePct ?? null
+  if (d30 !== null && d30 < 40) {
     out.push({
       id: 'retention-d30',
       type: 'Retention risk',
       title: `D30 retention is ${d30}%`,
       description: `Measured D30 retention is ${d30}% — below a healthy bar. Invest in habit-forming loops and re-engagement.`,
       score: Math.round(65 + (40 - d30)),
-      affectedUsers: Math.round(USER_COUNT * (1 - d30 / 100)),
+      affectedUsers: Math.round(ins.userCount * (1 - d30 / 100)),
     })
   }
 

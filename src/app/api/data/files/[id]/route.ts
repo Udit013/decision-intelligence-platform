@@ -1,26 +1,25 @@
 /**
- * /api/data/files/[id]
+ * /api/data/files/[id] — scoped to the caller's workspace (another workspace's
+ * file id is indistinguishable from a missing one).
  *  GET    — file detail (metadata + preview; never the raw payload)
  *  PATCH  — rename ({ name }) and/or re-scope ({ scope })
- *  DELETE — remove the file
+ *  DELETE — remove the file (data already imported from it stays; undo the import to remove it)
  */
 import { NextResponse } from 'next/server'
-import { eq } from 'drizzle-orm'
 import { getDb } from '@/db'
 import { workspaceFiles } from '@/db/schema'
 import { MAX_NAME_LENGTH } from '@/core/workspace'
-import { toDto, badRequest, isScope, dbUnavailable } from '../../_lib'
+import { toDto, badRequest, isScope, dbUnavailable, requireWorkspace, isUuid, notFound, ownFile } from '../../_lib'
 
 type Ctx = { params: Promise<{ id: string }> }
 
-const notFound = () => NextResponse.json({ error: 'File not found.' }, { status: 404 })
-const UUID_RE = /^[0-9a-f-]{36}$/i
-
 export async function GET(_req: Request, { params }: Ctx) {
+  const ws = await requireWorkspace()
+  if (ws instanceof NextResponse) return ws
   const { id } = await params
-  if (!UUID_RE.test(id)) return notFound()
+  if (!isUuid(id)) return notFound()
   try {
-    const [row] = await getDb().select().from(workspaceFiles).where(eq(workspaceFiles.id, id))
+    const [row] = await getDb().select().from(workspaceFiles).where(ownFile(ws, id))
     return row ? NextResponse.json({ file: toDto(row) }) : notFound()
   } catch (e) {
     return dbUnavailable(e)
@@ -28,8 +27,10 @@ export async function GET(_req: Request, { params }: Ctx) {
 }
 
 export async function PATCH(req: Request, { params }: Ctx) {
+  const ws = await requireWorkspace()
+  if (ws instanceof NextResponse) return ws
   const { id } = await params
-  if (!UUID_RE.test(id)) return notFound()
+  if (!isUuid(id)) return notFound()
   const body = (await req.json().catch(() => null)) as { name?: unknown; scope?: unknown } | null
   if (!body) return badRequest('Expected JSON body.')
 
@@ -47,7 +48,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   updates.updatedAt = new Date()
 
   try {
-    const [row] = await getDb().update(workspaceFiles).set(updates).where(eq(workspaceFiles.id, id)).returning()
+    const [row] = await getDb().update(workspaceFiles).set(updates).where(ownFile(ws, id)).returning()
     return row ? NextResponse.json({ file: toDto(row) }) : notFound()
   } catch (e) {
     return dbUnavailable(e)
@@ -55,10 +56,12 @@ export async function PATCH(req: Request, { params }: Ctx) {
 }
 
 export async function DELETE(_req: Request, { params }: Ctx) {
+  const ws = await requireWorkspace()
+  if (ws instanceof NextResponse) return ws
   const { id } = await params
-  if (!UUID_RE.test(id)) return notFound()
+  if (!isUuid(id)) return notFound()
   try {
-    const [row] = await getDb().delete(workspaceFiles).where(eq(workspaceFiles.id, id)).returning({ id: workspaceFiles.id })
+    const [row] = await getDb().delete(workspaceFiles).where(ownFile(ws, id)).returning({ id: workspaceFiles.id })
     return row ? NextResponse.json({ deleted: row.id }) : notFound()
   } catch (e) {
     return dbUnavailable(e)

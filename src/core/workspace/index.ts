@@ -4,7 +4,7 @@
  * replace/ingest API routes and the Data Manager UI.
  *
  * Honest processing model, surfaced verbatim in the UI:
- *  - csv / xlsx / json  → parsed into columns + rows (preview, and Operations ingest)
+ *  - csv / xlsx / json  → parsed into columns + rows (preview, and import into any module)
  *  - txt                → stored with a text preview (no tabular processing)
  *  - pdf / docx         → stored as reference documents (no parsing)
  */
@@ -16,9 +16,9 @@ export const MAX_FILE_LABEL = '4 MB'
 export const SAMPLE_ROW_LIMIT = 100
 /** Upper bound on parsed rows. A 4 MB .xlsx is a ZIP that can expand to millions of cells. */
 export const MAX_PARSE_ROWS = 100_000
-/** Workspace-wide caps. The upload API is unauthenticated, so storage must be bounded. */
-export const MAX_WORKSPACE_FILES = 200
-export const MAX_WORKSPACE_BYTES = 100 * 1024 * 1024
+/** Per-workspace upload caps (see core/imports/limits for the global ones). */
+export const MAX_WORKSPACE_FILES = 50
+export const MAX_WORKSPACE_BYTES = 25 * 1024 * 1024
 export const MAX_NAME_LENGTH = 200
 export const TEXT_PREVIEW_CHARS = 2000
 
@@ -36,9 +36,9 @@ export interface FormatInfo {
 }
 
 export const SUPPORTED_FORMATS: FormatInfo[] = [
-  { format: 'csv', label: 'CSV', processing: 'Parsed into columns & rows; previewable; can be ingested into Operations.', tabular: true },
-  { format: 'xlsx', label: 'Excel (XLSX)', processing: 'First sheet parsed into columns & rows; previewable; can be ingested into Operations.', tabular: true },
-  { format: 'json', label: 'JSON', processing: 'Array of objects parsed into columns & rows; previewable; can be ingested into Operations.', tabular: true },
+  { format: 'csv', label: 'CSV', processing: 'Parsed into columns & rows; previewable; importable into any module.', tabular: true },
+  { format: 'xlsx', label: 'Excel (XLSX)', processing: 'First sheet parsed into columns & rows; previewable; importable into any module.', tabular: true },
+  { format: 'json', label: 'JSON', processing: 'Array of objects parsed into columns & rows; previewable; importable into any module.', tabular: true },
   { format: 'txt', label: 'Text', processing: 'Stored with a text preview. Not parsed into tables.', tabular: false },
   { format: 'pdf', label: 'PDF', processing: 'Stored as a reference document. Not parsed.', tabular: false },
   { format: 'docx', label: 'Word (DOCX)', processing: 'Stored as a reference document. Not parsed.', tabular: false },
@@ -57,7 +57,14 @@ export function isTabular(format: FileFormat): boolean {
 
 /** Validate name + size before any parsing. Returns an error message or null. */
 /** Returns an error if adding `incomingBytes` would exceed the workspace caps. */
-export function quotaError(usage: { files: number; bytes: number }, incomingBytes: number): string | null {
+export function quotaError(
+  usage: { files: number; bytes: number },
+  incomingBytes: number,
+  global?: { bytes: number; cap: number },
+): string | null {
+  if (global && global.bytes + incomingBytes > global.cap) {
+    return 'Upload storage for this deployment is full right now. Try again later, or delete files you no longer need.'
+  }
   if (usage.files >= MAX_WORKSPACE_FILES) {
     return `The workspace is full (${MAX_WORKSPACE_FILES} files). Delete files you no longer need, then retry.`
   }

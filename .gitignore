@@ -36,3 +36,6 @@ npm-debug.log*
 
 # local tooling (never commit)
 .claude/
+
+# local database backups
+/backups

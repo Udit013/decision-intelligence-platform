@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import type { DomainPageProps } from '../../pages'
 import DecisionCenter from './DecisionCenter'
 import Opportunities from './Opportunities'
 import Prioritization from './Prioritization'
@@ -9,7 +10,7 @@ import Reports from './Reports'
 import Advisor from './Advisor'
 
 /** Maps product nav slugs (see registry) to page components. */
-export const productPages: Record<string, ComponentType> = {
+export const productPages: Record<string, ComponentType<DomainPageProps>> = {
   '': DecisionCenter,
   opportunities: Opportunities,
   prioritization: Prioritization,

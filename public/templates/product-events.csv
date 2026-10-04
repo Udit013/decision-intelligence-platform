@@ -1,0 +1,11 @@
+User ID,Event,Timestamp,Plan,Country
+u-001,signed_up,2025-01-02T09:00:00Z,free,US
+u-001,created_project,2025-01-02T09:14:00Z,free,US
+u-001,invited_teammate,2025-01-03T10:02:00Z,free,US
+u-001,created_project,2025-01-10T15:30:00Z,free,US
+u-002,signed_up,2025-01-03T12:00:00Z,pro,DE
+u-002,created_project,2025-01-03T12:20:00Z,pro,DE
+u-002,exported_report,2025-01-04T08:45:00Z,pro,DE
+u-002,created_project,2025-02-05T09:10:00Z,pro,DE
+u-003,signed_up,2025-01-05T17:00:00Z,free,IN
+u-003,created_project,2025-01-12T11:00:00Z,free,IN

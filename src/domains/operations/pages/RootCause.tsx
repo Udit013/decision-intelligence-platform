@@ -1,14 +1,15 @@
 import { getCategoryComparison } from '../data'
+import { opsSource } from '../source'
 import { assembleRootCause } from '../rootcause'
-import { gbp } from '../format'
 import { Card, CardBody, CardHeader, CardTitle } from '@/ui/components/Card'
 import { Badge } from '@/ui/components/Badge'
 import { PageHeader, EmptyState } from '@/ui/components/Kpi'
 
 export default async function RootCause() {
+  const { ws, money } = await opsSource()
   let rc = null
   try {
-    const cats = await getCategoryComparison(90)
+    const cats = ws ? await getCategoryComparison(ws, 90) : []
     if (cats.length && cats.some((c) => c.current || c.prior)) rc = assembleRootCause({ metricLabel: 'Revenue', categories: cats })
   } catch {
     rc = null
@@ -46,9 +47,9 @@ export default async function RootCause() {
               {rc.drivers.map((d) => (
                 <tr key={`${d.dimension}-${d.name}`} className="border-b border-border/50">
                   <td className="py-2"><span className="text-muted">{d.dimension}:</span> {d.name}</td>
-                  <td className="py-2 text-right tabular-nums">{gbp(d.prior)}</td>
-                  <td className="py-2 text-right tabular-nums">{gbp(d.current)}</td>
-                  <td className={`py-2 text-right tabular-nums ${d.change >= 0 ? 'text-good' : 'text-bad'}`}>{gbp(d.change)}</td>
+                  <td className="py-2 text-right tabular-nums">{money(d.prior)}</td>
+                  <td className="py-2 text-right tabular-nums">{money(d.current)}</td>
+                  <td className={`py-2 text-right tabular-nums ${d.change >= 0 ? 'text-good' : 'text-bad'}`}>{money(d.change)}</td>
                   <td className="py-2 text-right tabular-nums">{d.contributionPct}%</td>
                 </tr>
               ))}

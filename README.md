@@ -4,12 +4,20 @@
 
 **Live:** [coresightiq.vercel.app](https://coresightiq.vercel.app) ·
 **Stack:** Next.js 16 · React 19 · TypeScript · Tailwind v4 · Apache ECharts ·
-Drizzle + Neon Postgres · jsPDF · Ollama (optional)
+Drizzle + Neon Postgres · SheetJS · PapaParse · jsPDF · Ollama (optional)
 
 CoreSight IQ is a single Next.js + TypeScript platform where three business
 domains — **Operations**, **Market expansion**, and **Product** — run on one
 shared analytics engine. Every domain follows the same pipeline:
 **ingest → score → recommend → report → advise.**
+
+**Bring your own data.** Upload CSV, Excel or JSON into a private workspace,
+import it as order lines, market indicators, competitor shares, product events,
+experiment results or a backlog, and the matching module switches from its
+sample to your numbers. Every import is validated row by row, de-duplicated
+against what you already loaded, written in one transaction, and undoable.
+The samples stay one click away for exploring. Hosting cost: **$0** (Vercel +
+Neon free tiers).
 
 ---
 
@@ -42,11 +50,13 @@ column shows which domains exercise it — the proof the abstraction generalizes
 | [`stats`](src/core/stats/index.ts) | descriptive stats, OLS regression, normal CDF/quantile, **A/B two-proportion test** + CIs | Product (experiments), Operations (regression); **one canonical `normalCdf`** |
 | [`forecast`](src/core/forecast/index.ts) | Holt-Winters / linear / drift, model picked by a **leakage-free nested backtest** | Operations |
 | [`validation`](src/core/validation/index.ts) | **walk-forward backtest** + **confidence calibration** (Brier, ECE) — *new* | Operations; failure-proof in [`harness-demo`](scripts/harness-demo.ts) |
-| [`scoring`](src/core/scoring/index.ts) | weighted score → 0–100 → **bucket classifier**, with per-criterion contributions | Market (Expand/Investigate/Monitor/Avoid **+** entry strategy), Product (RICE/ICE/WSJF → Now/Next/Later/Backlog) |
+| [`scoring`](src/core/scoring/index.ts) | weighted score → 0–100 → **bucket classifier**, with per-criterion contributions; missing criteria are skipped and reported as coverage | Market (Expand/Investigate/Monitor/Avoid **+** entry strategy), Product (RICE/ICE/WSJF → Now/Next/Later/Backlog) |
 | [`recommend`](src/core/recommend/index.ts) | `Signal[]` → ranked recommendations (priority = impact × confidence) | **All three** decision centers |
 | [`segmentation`](src/core/segmentation/index.ts) | quantile binning + RFM helper | Operations (customer RFM), Product (engagement quintiles) |
 | [`cohort`](src/core/cohort/index.ts) | retention-matrix aggregator | Product (D1–D90 retention) |
 | [`report`](src/core/report/index.ts) | executive PDF builder | **All three** |
+| [`imports`](src/core/imports/index.ts) | header → field mapping, typed parsing (numbers, dates), range checks, row-numbered issue report, content keys for de-dup | **All six** import types across the three modules |
+| [`workspace`](src/core/workspace/index.ts) | upload validation, safe CSV/XLSX/JSON parsing, quotas | Data Manager |
 | [`advisor`](src/core/advisor/index.ts) | one Ollama client + RAG context + deterministic router | **All three** advisors |
 
 A domain plugs in by registering with [`core/registry.ts`](src/core/registry.ts)
@@ -57,9 +67,13 @@ re-implementing the engine.
 
 ## Using the platform
 
-1. **Pick a module.** From the landing page cards or the **switcher in the
-   top-left header**, choose Operations, Market, or Product.
-2. **Explore.** Each module opens on its **Decision Center** (ranked,
+1. **Bring data (optional).** Open the **Data Manager** (`/data`), upload a
+   file, press **Import**, confirm the column mapping and the data check. Or
+   skip this and explore the samples.
+2. **Pick a module.** From the landing page or the module tabs in the header.
+   The **statusline** under the header says what you're looking at — *Your
+   data* or the sample — and switches between them.
+3. **Explore.** Each module opens on its **Decision Center** (ranked,
    confidence-scored decisions). Use the **left nav** to drill in:
    - **Operations** — Forecasting, Customer Intelligence (RFM/CLV), Inventory
      planning, Pricing & Promo simulation, Root Cause, Executive Reports, AI Advisor.
@@ -69,59 +83,82 @@ re-implementing the engine.
    - **Product** — Opportunities, **Prioritization** (RICE/ICE/WSJF with a live
      model switcher), Funnels & Cohorts (D1–D90 retention heatmap), Experiments
      (A/B significance), Roadmap, Executive Reports, AI Advisor.
-3. **Export or ask.** Hit **Download PDF** on any Reports page for a board-ready
+4. **Export or ask.** Hit **Download PDF** on any Reports page for a board-ready
    summary, or open the **AI Advisor** and ask in plain English — it answers
    grounded in the live numbers (local Ollama if available, deterministic
    otherwise).
 
-Every page shows an honest **data-provenance badge** (REAL vs DEMO) and modules
-on synthetic data lead with a clear banner.
+Sample data is always labeled (statusline + banner); your own data never is
+mixed with it.
 
-### Adding / refreshing data
+### Bring your own data
 
-**In-app — the Data Manager (`/data`).** Every module has an **Upload / Manage
-Data** button in its header, and shows its **active dataset** above the content.
-The Data Manager is a shared workspace: upload once (drag-and-drop, multiple
-files, per-file progress and validation) and every module sees the file by
-default, or scope it to one module. Files can be previewed, renamed, replaced,
-reprocessed, and deleted.
+| Import type | Module | Required columns (auto-detected) | Enables |
+|---|---|---|---|
+| **Order lines** | Operations | order ID, product code, quantity, unit price, date (+ product name, customer, country) | revenue, forecasting, RFM customers, inventory, pricing, root cause |
+| **Market indicators** | Market | market name + ≥ 3 of GDP, growth, population, income, internet %, purchasing power, ease of business, tax, inflation, currency stability | scoring, Expand/Investigate/Monitor/Avoid, entry strategy, scenarios |
+| **Competitor shares** | Market | market, competitor, share % | HHI concentration, saturation, entry difficulty |
+| **Product events** | Product | user ID, event name, timestamp (+ plan, country) | D1–D90 retention cohorts, ordered funnels, adoption, engagement tiers |
+| **Experiment results** | Product | experiment, variant, users, conversions | two-proportion significance per treatment vs control |
+| **Backlog initiatives** | Product | initiative, reach, impact, confidence, effort (+ WSJF inputs) | RICE / ICE / WSJF ranking, roadmap tiers |
 
-- **Formats:** CSV, XLSX, JSON (parsed into columns/rows, previewable),
-  TXT (stored with text preview), PDF/DOCX (stored as reference documents).
-  Max **4 MB** per file and **100,000 parsed rows**; Excel workbooks are read
-  first-sheet-only. The UI states exactly how each format is processed.
-- **Operations ingest:** a tabular file with order lines (invoice, SKU,
-  quantity, price, date — headers auto-detected, e.g. `Order ID`/`InvoiceNo`)
-  can be loaded into the Operations analytics with one click (≤25k rows in-app;
-  bigger loads via the CLI ETL). The load is **all-or-nothing** (one database
-  transaction), concurrent requests can't double-load a file, and the analytics
-  caches refresh immediately.
-- **Workspace limits:** 200 files / 100 MB in total, so an open deployment
-  can't be filled by repeated uploads. Delete files to free space.
+Each type has a downloadable template in [`public/templates`](public/templates).
 
-**CLI — bulk loads.** For the full ~1M-row dataset (or your own large exports),
-run the ETL below; it prints a **data-quality report before it writes anything**.
-Margin/profit remain estimates (see
+**How an import works**
+
+1. **Upload** — CSV, XLSX (first sheet) or JSON, up to 4 MB and 100,000 parsed
+   rows. Files are stored in your workspace; preview, rename, replace, delete.
+2. **Map & check** — pick the import type (suggested from the columns), adjust
+   the column mapping, and see a dry run: rows that will import, duplicates
+   (in the file and already in your workspace), and every rejected value with
+   its row number and reason. Nothing is written yet.
+3. **Import** — one database transaction, up to 25,000 rows per file. Bad
+   required values skip their row; bad optional values are stored as blank,
+   never guessed.
+4. **Undo** — Import history lists every import; undo removes exactly the rows
+   it added (Operations also drops customers/products/invoices no other import
+   still uses).
+
+**De-duplication.** Rows without a natural ID (order lines, events) get a
+content key: a hash of the row plus its occurrence number within the file, so
+re-importing an overlapping export skips the overlap while genuine repeated
+rows are kept. Markets, competitors, experiments and backlog items de-duplicate
+on their natural key. The same file can't be imported twice as the same type.
+
+**Missing data is never imputed.** Market scores are weighted sums over the
+indicators you provide, with weights renormalized — complete rows score exactly
+like the sample formula; partial rows show their input coverage. Projections
+that need a specific input (e.g. scenario revenue needs GDP) say so instead of
+guessing. Product retention only counts users once their full D-n window is
+inside your data (right-censoring). Money from uploaded files is shown without
+a currency symbol (files don't state one).
+
+**Private workspaces.** There are no accounts: each browser gets an anonymous
+workspace (a random 256-bit token in an httpOnly cookie; the database only sees
+its SHA-256). Nobody else can see your files or results. *Copy recovery link*
+opens the workspace on another device; *Delete all my data* erases it.
+
+**CLI bulk load.** The full ~1M-row UCI dataset seeds the shared, read-only
+sample workspace via the ETL below (it prints a data-quality report before
+writing). Margin/profit remain estimates (see
 [`assumptions.ts`](src/domains/operations/assumptions.ts)).
-
-**Market / Product generators:** these modules run on deterministic in-memory
-engines. Adjust the generators ([market](src/domains/market/generator.ts),
-[product](src/domains/product/generator.ts)) and the whole module recomputes;
-workspace files scoped to them are stored and previewable.
 
 ---
 
 ## Datasets
 
-| Module | Source | Provenance | How to load |
-|---|---|---|---|
-| **Operations** | [UCI “Online Retail II”](https://archive.ics.uci.edu/dataset/502/online+retail+ii) — ~1.07M real UK e-commerce transactions, Dec 2009–Dec 2011 | **Real** | One-time ETL into Postgres (see Setup). Normalized into `operations_{customers,products,invoices,invoice_lines}`. |
-| **Market** | 120 synthetic countries with realistic 2023–24-style indicators (GDP, growth, digital adoption, PPI, risk) | **Demo / modeled** | Zero setup — in-memory, deterministic. |
-| **Product** | 3,000 synthetic SaaS users with signup cohorts, sessions, funnel & feature events | **Demo / measured** | Zero setup — in-memory, deterministic. |
+Sample datasets (shown until you import your own, and any time you switch to *Sample*):
 
-> **Honest provenance note:** Operations is the only module on real data. Market
-> figures are modeled from editorial weights; Product is synthetic but its
-> retention/funnel numbers are **measured from the generated data**, not invented.
+| Module | Sample | Provenance | How it loads |
+|---|---|---|---|
+| **Operations** | [UCI “Online Retail II”](https://archive.ics.uci.edu/dataset/502/online+retail+ii) — ~1.07M real UK e-commerce transactions, Dec 2009–Dec 2011 | **Real** | One-time ETL into the read-only sample workspace (see Setup). |
+| **Market** | 120 synthetic countries with realistic 2023–24-style indicators | **Demo / modeled** | In-memory, deterministic. |
+| **Product** | 3,000 synthetic SaaS users with cohorts, sessions, funnel & feature events | **Demo / measured** | In-memory, deterministic. |
+
+> **Honest provenance note:** the Operations sample is real data. Market sample
+> figures are modeled from editorial weights; the Product sample is synthetic but
+> its retention/funnel numbers are **measured from the generated data**. Your own
+> imports run through exactly the same engines.
 
 ---
 
@@ -170,29 +207,37 @@ more credible than one that only claims to work.
 
 ## Security & data integrity
 
-The platform has no login (by design, for an open deployment), so the write
-APIs are hardened instead:
+There are no accounts, so isolation and the write path are hardened instead:
 
-- **Untrusted file parsing** — size, format, and row caps; Excel parsing skips
-  formulas/HTML/styles and decodes only the first sheet. SheetJS is installed
-  from its vendor's patched release (`xlsx` 0.20.3, Apache-2.0) because the npm
-  registry copy (0.18.5) carries unfixed prototype-pollution and ReDoS
-  advisories; the lockfile pins its sha512 hash.
-- **Ingest integrity** — an atomic `UPDATE … WHERE ingested_at IS NULL` claim
-  serializes ingests of a file; all inserts run in one `db.batch()` transaction
-  (Neon's HTTP driver has no interactive transactions) and the claim is
-  released on failure. Re-parsing a file never re-opens it for ingest; only
-  replacing its bytes does.
-- **No internal detail in responses** — database errors are logged server-side
-  and clients receive a generic 503.
-- **Headers** — HSTS, `X-Frame-Options: DENY`, `nosniff`, a strict referrer
-  policy and a locked-down `Permissions-Policy` on every response.
+- **Workspace isolation** — every row carries a `workspace_id` derived from the
+  visitor's secret cookie; every query and mutation filters on it. Another
+  workspace's file or import id behaves exactly like a missing one (404).
+- **CSRF** — state-changing API calls must come from the app's own origin
+  (checked in [`src/proxy.ts`](src/proxy.ts)); cookies are `SameSite=Lax`,
+  `HttpOnly`, `Secure`. The recovery link carries its token in the URL
+  *fragment*, which browsers never send to servers.
+- **Untrusted files** — size, format and row caps; Excel parsing decodes only
+  the first sheet and skips formulas/HTML/styles. SheetJS comes from its
+  vendor's patched release (`xlsx` 0.20.3, Apache-2.0; the npm copy 0.18.5 has
+  unfixed advisories), sha512-pinned in the lockfile.
+- **Import integrity** — a partial unique index on the import ledger admits one
+  live import per (workspace, type, file content), so double-clicks and retries
+  can't double-load; all rows plus the ledger update commit in one transaction
+  (`db.batch()` on Neon, `BEGIN … COMMIT` elsewhere). Database `CHECK`
+  constraints mirror the validator's ranges as a second line of defense.
+- **Capacity on a free tier** — per-workspace caps (50 files / 25 MB of uploads,
+  250k order lines or events, smaller caps for the rest) and deployment-wide
+  caps (60 MB of uploads, 1M imported rows) keep the database inside Neon's free
+  512 MB no matter how many anonymous workspaces exist.
+- **No internal detail in responses** — database errors are logged server-side;
+  clients get a generic 503.
+- **Headers** — HSTS, `X-Frame-Options: DENY`, `nosniff`, strict referrer
+  policy, locked-down `Permissions-Policy`.
 - `npm audit --omit=dev` reports **0** production vulnerabilities.
 
-Known gaps: no authentication or rate limiting on uploads (bounded by the
-workspace quota), no Content-Security-Policy yet, and ingested rows aren't
-tagged with their source file, so two different files with overlapping orders
-can double-count.
+Known limits: no rate limiting (bounded by the caps above), no
+Content-Security-Policy yet, a lost cookie without a saved recovery link means
+a lost workspace, and inactive workspaces are not yet expired automatically.
 
 ---
 
@@ -203,30 +248,41 @@ npm install            # .npmrc sets legacy-peer-deps for React 19
 npm run dev            # http://localhost:3000
 ```
 
-**Market** and **Product** are **zero-setup** — they render with no database and
-no AI service.
-
-**Operations** runs on the real UCI dataset and needs a one-time ETL:
+The **Market** and **Product** samples render with no database. Uploads,
+imports and the Operations sample need Postgres:
 
 ```bash
-cp .env.example .env    # set DATABASE_URL (a free Neon instance works)
-npm run db:push         # create the unified schema
-# downloads ~45MB, prints data-quality stats PRE-SEED, then loads ~1M rows:
+cp .env.example .env    # set DATABASE_URL — a free Neon database, or any Postgres 14+
+npm run db:migrate      # apply db/migrations (versioned SQL, one transaction each)
+# optional — seed the Operations sample (downloads ~45MB, prints data quality first):
 npx tsx --max-old-space-size=4096 scripts/etl-operations.ts
 ```
 
-Before the ETL runs, Operations pages render a graceful "run the ETL" state
-rather than crashing. The ETL is **idempotent-safe**: it refuses to seed over
-existing data (re-running would duplicate metrics) unless you pass `--force`,
-which wipes and reloads. To verify a deployment's database connection, hit
-**`GET /api/operations/health`** — it reports seeded row counts and live query
-latency.
+`DATABASE_URL` pointing at `*.neon.tech` uses the serverless HTTP driver; any
+other Postgres (e.g. `postgresql://postgres@localhost:5432/csiq`) uses
+node-postgres — handy for local development and self-hosting. The ETL only ever
+touches the sample workspace and refuses to seed over existing sample data
+unless `--force`. `GET /api/operations/health` reports the sample's row counts
+and query latency.
+
+### Schema changes
+
+Schema lives in [`db/migrations`](db/migrations) as reviewed SQL with a matching
+`.down.sql`; [`src/db/schema.ts`](src/db/schema.ts) mirrors it for typed
+queries. Don't use `drizzle-kit push` — it would drop the `CHECK` constraints
+that exist only in SQL.
+
+```bash
+npm run db:status                                   # applied / pending
+npm run db:migrate                                  # apply pending
+npx tsx scripts/db-migrate.ts --down 0001_workspaces_imports   # roll back (deletes visitor data)
+```
 
 ### Environment variables
 
 | Var | Required | Used by |
 |---|---|---|
-| `DATABASE_URL` | Operations only | Neon Postgres (serverless driver) |
+| `DATABASE_URL` | for uploads, imports, Operations sample | Neon (HTTP driver) or any Postgres (node-postgres) |
 | `OLLAMA_URL` | optional | AI Advisor (default `http://localhost:11434`) |
 | `OLLAMA_MODEL` | optional | AI Advisor (default `llama3.2`) |
 
@@ -237,13 +293,13 @@ latency.
 | Command | What |
 |---|---|
 | `npm run dev` / `build` / `start` | Next app |
-| `npm test` | core + domain unit tests (vitest) — 111 tests |
+| `npm test` | core + domain unit tests (vitest) — 137 tests |
 | `npm run typecheck` / `lint` | static checks |
-| `npm run db:push` | push the unified Drizzle schema |
+| `npm run db:migrate` / `db:status` | apply / list SQL migrations |
 | `npx tsx scripts/harness-demo.ts` | validation-harness failure proof |
 | `npx tsx scripts/operations-metrics.ts` | recompute honest Operations metrics |
 | `npx tsx scripts/product-metrics.ts` | recompute measured Product metrics |
-| `npx tsx scripts/etl-operations.ts` | ETL the real dataset into Postgres (`--force` to wipe & reload) |
+| `npx tsx scripts/etl-operations.ts` | ETL the UCI sample into the sample workspace (`--force` to reload it) |
 
 CI (GitHub Actions) runs lint, typecheck, all tests, and a production build on
 every push and pull request to `main`.
@@ -254,10 +310,14 @@ every push and pull request to `main`.
 
 Deployed at [coresightiq.vercel.app](https://coresightiq.vercel.app). Framework is
 auto-detected as Next.js; `.npmrc` handles peer deps. Set `DATABASE_URL` (and
-optional `OLLAMA_*`) in the Vercel project — Market and Product work even without
-it. Every push to `main` redeploys. Seed Operations by running the ETL locally
-against the same `DATABASE_URL` (loading ~1M rows exceeds a serverless function's
-time limit).
+optional `OLLAMA_*`) in the Vercel project. Every push to `main` redeploys.
+
+**Release order for schema changes:** back up (`pg_dump`, or a Neon branch),
+run `npm run db:migrate` against production, then push. Migrations are written
+expand-first so the previous deployment keeps serving reads while the new one
+builds. Roll back code with Vercel's instant rollback; roll back schema with the
+migration's `--down`. Seed the Operations sample by running the ETL locally
+against the same `DATABASE_URL` (~1M rows exceeds a serverless time limit).
 
 ## License
 

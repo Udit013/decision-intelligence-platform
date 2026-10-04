@@ -1,4 +1,7 @@
 import Link from 'next/link'
+import type { DomainKey } from '@/core/tenancy'
+import { kindsForDomain } from '@/domains/import-kinds'
+import { ModeButton } from './ModeButton'
 import { cn } from '@/ui/cn'
 
 /**
@@ -50,24 +53,41 @@ export function PageHeader({ title, tagline }: { title: string; tagline?: string
   )
 }
 
-/** Shown when the operations DB has no data yet. */
-export function EmptyState() {
+/** Shown when a module has nothing to display for the current data choice. */
+export function EmptyState({ domain = 'operations' }: { domain?: DomainKey }) {
+  const kinds = kindsForDomain(domain)
   return (
-    <div className="rounded-xl border border-border bg-surface px-6 py-14 text-center">
-      <p className="kicker text-[var(--accent)]">No data yet</p>
-      <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted">
-        This module has no data loaded. Upload a transactions file (CSV/XLSX/JSON with invoice, SKU,
-        quantity, price, and date columns) and it powers these analytics directly.
-      </p>
-      <Link href="/data" className="btn-ink mt-6">
-        Upload data
-      </Link>
-      <p className="mt-7 text-xs text-muted">
-        Or load the full UCI Online Retail II dataset (~1M rows) from the CLI:
-      </p>
-      <pre className="mx-auto mt-2 w-fit rounded-lg border border-border bg-surface-2/70 px-4 py-2.5 text-left font-mono text-xs text-fg">
-        npm run db:push{'\n'}npx tsx --max-old-space-size=4096 scripts/etl-operations.ts
-      </pre>
+    <div className="rounded-xl border border-border bg-surface px-6 py-12">
+      <div className="mx-auto max-w-lg text-center">
+        <p className="kicker text-[var(--accent)]">No data yet</p>
+        <p className="mt-3 text-sm leading-relaxed text-muted">
+          You&apos;re viewing your own data, and nothing has been imported for this module. Upload a CSV, Excel or
+          JSON file in the data manager and import it as:
+        </p>
+      </div>
+      <ul className="mx-auto mt-5 max-w-lg divide-y divide-border border-y border-border text-left">
+        {kinds.map((k) => (
+          <li key={k.id} className="py-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-[13.5px] font-medium">{k.label}</span>
+              <a href={k.template} className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted underline decoration-border underline-offset-4 hover:text-fg">
+                template.csv
+              </a>
+            </div>
+            <p className="mt-0.5 text-xs leading-relaxed text-muted">
+              Needs {k.fields.filter((f) => f.required).map((f) => f.label).join(', ')}.
+            </p>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+        <Link href="/data" className="btn-ink">
+          Upload data
+        </Link>
+        <ModeButton domain={domain} mode="demo">
+          View sample data
+        </ModeButton>
+      </div>
     </div>
   )
 }

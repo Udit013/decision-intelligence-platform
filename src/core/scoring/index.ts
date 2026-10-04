@@ -22,8 +22,12 @@ export interface Criterion<T> {
   weight: number
   /** Whether a higher raw value is better ('higher') or worse ('lower'). */
   direction: Direction
-  /** Extract the raw numeric value from an item. */
-  value: (item: T) => number
+  /**
+   * Extract the raw numeric value from an item. Return null when the item has
+   * no data for this criterion: it is then scored on the remaining criteria
+   * (weights renormalized) and its `coverage` reports the share of weight used.
+   */
+  value: (item: T) => number | null
   /**
    * Optional fixed normalization range [min, max]. When omitted, the engine
    * min-max normalizes across the provided set. Use a fixed range when scores
@@ -59,7 +63,10 @@ export interface ScoredItem<T> {
   score: number
   rank: number
   bucket: string | null
+  /** Contributions of the criteria that had data (missing ones are omitted). */
   contributions: Contribution[]
+  /** Share (0–1) of total criterion weight backed by data for this item. */
+  coverage: number
 }
 
 function clamp01(x: number): number {
@@ -77,23 +84,29 @@ export function scoreAndClassify<T>(items: T[], config: ScoreConfig<T>): ScoredI
   const { criteria, buckets } = config
   if (!items.length) return []
   const totalWeight = criteria.reduce((s, c) => s + c.weight, 0) || 1
+  const values = items.map((it) => criteria.map((c) => c.value(it)))
+  const isNum = (v: number | null): v is number => typeof v === 'number' && Number.isFinite(v)
 
-  // Resolve a [min,max] range per criterion (fixed or derived from the set).
-  const ranges = criteria.map((c) => {
+  // Resolve a [min,max] range per criterion (fixed, or derived from items that have data).
+  const ranges = criteria.map((c, i) => {
     if (c.range) return c.range
-    const vals = items.map((it) => c.value(it))
-    return [Math.min(...vals), Math.max(...vals)] as [number, number]
+    const vals = values.map((row) => row[i]).filter(isNum)
+    return vals.length ? ([Math.min(...vals), Math.max(...vals)] as [number, number]) : ([0, 0] as [number, number])
   })
 
-  const scored = items.map((item) => {
-    const contributions: Contribution[] = criteria.map((c, i) => {
-      const raw = c.value(item)
+  const scored = items.map((item, idx) => {
+    const present = criteria.map((_, i) => isNum(values[idx][i]))
+    const presentWeight = criteria.reduce((s, c, i) => s + (present[i] ? c.weight : 0), 0)
+    const contributions: Contribution[] = []
+    criteria.forEach((c, i) => {
+      if (!present[i]) return
+      const raw = values[idx][i] as number
       const [lo, hi] = ranges[i]
       // Neutral 0.5 when the criterion is constant across the set.
       let norm = hi === lo ? 0.5 : clamp01((raw - lo) / (hi - lo))
       if (c.direction === 'lower') norm = 1 - norm
-      const weighted = (norm * c.weight) / totalWeight
-      return { key: c.key, raw, normalized: norm, weighted: weighted * 100 }
+      const weighted = presentWeight > 0 ? (norm * c.weight) / presentWeight : 0
+      contributions.push({ key: c.key, raw, normalized: norm, weighted: weighted * 100 })
     })
     const score = contributions.reduce((s, c) => s + c.weighted, 0)
     return {
@@ -102,10 +115,11 @@ export function scoreAndClassify<T>(items: T[], config: ScoreConfig<T>): ScoredI
       rank: 0,
       bucket: buckets ? classify(score, buckets) : null,
       contributions,
+      coverage: presentWeight / totalWeight,
     }
   })
 
-  scored.sort((a, b) => b.score - a.score)
+  scored.sort((a, b) => b.coverage > 0 === a.coverage > 0 ? b.score - a.score : b.coverage > 0 ? 1 : -1)
   scored.forEach((s, i) => (s.rank = i + 1))
   return scored
 }

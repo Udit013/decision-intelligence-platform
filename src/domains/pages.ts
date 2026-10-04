@@ -8,12 +8,18 @@ import { productPages } from './product/pages'
  * wired register here; the app routes look a domain up and render its component,
  * falling back to the Phase-scaffold Placeholder for not-yet-built domains.
  */
-export const DOMAIN_PAGES: Record<string, Record<string, ComponentType>> = {
+/** Props every domain page receives (resolved URL search params). */
+export interface DomainPageProps {
+  searchParams: Record<string, string | string[] | undefined>
+}
+type DomainPage = ComponentType<DomainPageProps>
+
+export const DOMAIN_PAGES: Record<string, Record<string, DomainPage>> = {
   operations: operationsPages,
   market: marketPages,
   product: productPages,
 }
 
-export function resolvePage(domainId: string, slug: string): ComponentType | undefined {
+export function resolvePage(domainId: string, slug: string): DomainPage | undefined {
   return DOMAIN_PAGES[domainId]?.[slug]
 }

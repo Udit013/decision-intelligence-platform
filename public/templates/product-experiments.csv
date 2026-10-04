@@ -1,0 +1,5 @@
+Experiment,Variant,Users,Conversions,Hypothesis
+Onboarding checklist,control,2400,372,A guided checklist lifts activation
+Onboarding checklist,checklist,2380,451,A guided checklist lifts activation
+Annual plan nudge,control,1800,95,Highlighting annual billing lifts upgrades
+Annual plan nudge,nudge,1810,101,Highlighting annual billing lifts upgrades

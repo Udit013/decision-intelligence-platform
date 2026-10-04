@@ -21,16 +21,16 @@ export interface InitiativeInput {
   impact: number // 0.25..3
   confidence: number // 0..1
   effort: number // person-weeks
-  // WSJF cost-of-delay components
-  userValue: number
-  timeCriticality: number
-  riskReduction: number
+  // WSJF cost-of-delay components (null when not provided — WSJF is then unavailable)
+  userValue: number | null
+  timeCriticality: number | null
+  riskReduction: number | null
 }
 
 export interface RankedInitiative extends InitiativeInput {
   rice: number
   ice: number
-  wsjf: number
+  wsjf: number | null
   /** 0–100 normalized priority within the set, from core/scoreAndClassify */
   priority: number
   rank: number
@@ -40,7 +40,15 @@ export interface RankedInitiative extends InitiativeInput {
 // Standard formulas (metric definitions).
 const rice = (i: InitiativeInput) => (i.effort > 0 ? Math.round((i.reach * i.impact * i.confidence) / i.effort) : 0)
 const ice = (i: InitiativeInput) => Math.round(((i.impact / 3) * 10 + i.confidence * 10 + (10 - Math.min(10, i.effort))) / 3 * 10) / 10
-const wsjf = (i: InitiativeInput) => (i.effort > 0 ? Math.round(((i.userValue + i.timeCriticality + i.riskReduction) / i.effort) * 10) / 10 : 0)
+const wsjf = (i: InitiativeInput) =>
+  i.userValue === null || i.timeCriticality === null || i.riskReduction === null
+    ? null
+    : i.effort > 0
+      ? Math.round(((i.userValue + i.timeCriticality + i.riskReduction) / i.effort) * 10) / 10
+      : 0
+
+/** WSJF needs all three cost-of-delay inputs on every initiative. */
+export const wsjfAvailable = (items: InitiativeInput[]) => items.length > 0 && items.every((i) => wsjf(i) !== null)
 
 const TIERS: Bucket[] = [
   { label: 'Now', min: 75 },

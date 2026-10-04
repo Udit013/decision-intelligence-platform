@@ -79,3 +79,32 @@ describe('scoreAndClassify', () => {
     expect(scoreAndClassify([], config)).toEqual([])
   })
 })
+
+describe('scoreAndClassify with missing data', () => {
+  type Row = { a: number | null; b: number | null }
+  const cfg = {
+    criteria: [
+      { key: 'a', weight: 3, direction: 'higher' as const, value: (r: Row) => r.a, range: [0, 10] as [number, number] },
+      { key: 'b', weight: 1, direction: 'higher' as const, value: (r: Row) => r.b, range: [0, 10] as [number, number] },
+    ],
+  }
+
+  it('scores on the criteria that have data and reports coverage', () => {
+    const [res] = scoreAndClassify<Row>([{ a: 10, b: null }], cfg)
+    expect(res.score).toBe(100)
+    expect(res.coverage).toBe(0.75)
+    expect(res.contributions.map((c) => c.key)).toEqual(['a'])
+  })
+
+  it('is identical to the full computation when nothing is missing', () => {
+    const [res] = scoreAndClassify<Row>([{ a: 5, b: 10 }], cfg)
+    expect(res.score).toBe(62.5)
+    expect(res.coverage).toBe(1)
+  })
+
+  it('ranks items with no data last', () => {
+    const out = scoreAndClassify<Row>([{ a: null, b: null }, { a: 1, b: 1 }], cfg)
+    expect(out[0].item.a).toBe(1)
+    expect(out[1].coverage).toBe(0)
+  })
+})

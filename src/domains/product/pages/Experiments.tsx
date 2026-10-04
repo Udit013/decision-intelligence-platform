@@ -1,18 +1,23 @@
-import { getExperiments } from '../experiments'
+import { getProductDataset } from '../dataset'
 import { PRODUCT_META } from '../config'
 import { Card, CardBody } from '@/ui/components/Card'
 import { Badge } from '@/ui/components/Badge'
 import { PageHeader } from '@/ui/components/Kpi'
 import { DemoBanner } from '@/ui/components/DemoBanner'
+import { MissingData } from '@/ui/components/MissingData'
 
 const TONE = { winner: 'good', loser: 'bad', inconclusive: 'neutral' } as const
 
-export default function Experiments() {
-  const experiments = getExperiments()
+export default async function Experiments() {
+  const ds = await getProductDataset()
+  const experiments = ds.experiments
   return (
     <>
       <PageHeader title="Experiments" tagline="A/B significance via the shared core/stats engine — honest verdicts, not all wins." />
-      <DemoBanner note={PRODUCT_META.demoNote} />
+      {ds.source.kind === 'demo' && <DemoBanner note={PRODUCT_META.demoNote} />}
+      {!experiments.length && (
+        <MissingData kind="product.experiments" why="Significance testing needs users and conversions per variant (at least two variants per experiment)." />
+      )}
       <div className="space-y-3">
         {experiments.map((e) => (
           <Card key={e.name}>

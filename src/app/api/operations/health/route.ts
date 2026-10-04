@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { sql } from 'drizzle-orm'
 import { getDb } from '@/db'
+import { DEMO_WORKSPACE_ID } from '@/db/ids'
 
 /**
  * Deployment diagnostic: confirms the deployed DATABASE_URL points at a seeded
@@ -20,10 +21,10 @@ export async function GET() {
     const row = firstRow(
       await db.execute(sql`
         SELECT
-          (SELECT COUNT(*) FROM operations_invoice_lines)::int AS lines,
-          (SELECT COUNT(*) FROM operations_invoices)::int AS invoices,
-          (SELECT COUNT(*) FROM operations_customers)::int AS customers,
-          (SELECT COUNT(*) FROM operations_products)::int AS products
+          (SELECT COUNT(*) FROM operations_invoice_lines WHERE workspace_id = ${DEMO_WORKSPACE_ID})::int AS lines,
+          (SELECT COUNT(*) FROM operations_invoices WHERE workspace_id = ${DEMO_WORKSPACE_ID})::int AS invoices,
+          (SELECT COUNT(*) FROM operations_customers WHERE workspace_id = ${DEMO_WORKSPACE_ID})::int AS customers,
+          (SELECT COUNT(*) FROM operations_products WHERE workspace_id = ${DEMO_WORKSPACE_ID})::int AS products
       `),
     )
     const counts = {

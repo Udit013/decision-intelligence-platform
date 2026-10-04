@@ -14,9 +14,10 @@ export interface SlimMarket {
   name: string
   gdp: number
   opportunityScore: number
-  gdpGrowth: number
-  riskScore: number
-  saturation: number
+  gdpGrowth: number | null
+  riskScore: number | null
+  /** null when no competitor shares were provided (no saturation discount). */
+  saturation: number | null
 }
 
 export function ScenarioSimulator({ markets }: { markets: SlimMarket[] }) {
@@ -28,7 +29,7 @@ export function ScenarioSimulator({ markets }: { markets: SlimMarket[] }) {
     const m = markets.find((x) => x.id === marketId)
     if (!m) return null
     const market = { gdp: m.gdp, opportunityScore: m.opportunityScore, gdpGrowth: m.gdpGrowth, riskScore: m.riskScore } as Market
-    const comp = { marketSaturation: m.saturation, competitorCount: 10 } as CompetitiveData
+    const comp = m.saturation === null ? undefined : ({ marketSaturation: m.saturation, competitorCount: 10 } as CompetitiveData)
     return simulateExpansion(market, comp, { budget, teamSize: 10, pricingStrategy: pricing, marketingSpend: budget * 0.3, strategy: 'direct' })
   }, [marketId, budget, pricing, markets])
 

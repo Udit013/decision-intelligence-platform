@@ -1,12 +1,13 @@
 import { buildSnapshot } from '../snapshot'
-import { gbp } from '../format'
+import { opsSource } from '../source'
 import { Card, CardBody, CardHeader, CardTitle } from '@/ui/components/Card'
 import { Badge } from '@/ui/components/Badge'
 import { Kpi, KpiGrid, PageHeader, EmptyState } from '@/ui/components/Kpi'
 import { Docket } from '@/ui/components/Docket'
 
 export default async function DecisionCenter() {
-  const snap = await buildSnapshot()
+  const { ws, symbol, money } = await opsSource()
+  const snap = ws ? await buildSnapshot(ws, symbol) : null
   if (!snap) {
     return (
       <>
@@ -26,10 +27,10 @@ export default async function DecisionCenter() {
       />
 
       <KpiGrid>
-        <Kpi label="Revenue" value={gbp(kpis.revenue)} sub={`${kpis.dateMin} → ${kpis.dateMax}`} />
-        <Kpi label="Orders" value={kpis.orders.toLocaleString()} sub={`AOV ${gbp(kpis.aov)}`} />
+        <Kpi label="Revenue" value={money(kpis.revenue)} sub={`${kpis.dateMin} → ${kpis.dateMax}`} />
+        <Kpi label="Orders" value={kpis.orders.toLocaleString()} sub={`AOV ${money(kpis.aov)}`} />
         <Kpi label="Customers" value={kpis.customers.toLocaleString()} />
-        <Kpi label="Returns" value={`${returns.ratePct}%`} sub={`${gbp(returns.value)} of gross`} />
+        <Kpi label="Returns" value={`${returns.ratePct}%`} sub={`${money(returns.value)} of gross`} />
       </KpiGrid>
 
       <Card className="mt-6">

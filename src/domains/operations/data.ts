@@ -1,18 +1,21 @@
 /**
  * Operations data adapter — the ONLY place that talks SQL for this domain.
- * Centralizes queries over the operations_* tables so the engines and pages share
- * one source of truth. All aggregates use clean sale lines (quantity > 0, price > 0,
- * non-return) except the returns metric, which intentionally reads credit notes.
+ * Every query is scoped to one workspace (the visitor's own, or the demo
+ * workspace holding the UCI sample). All aggregates use clean sale lines
+ * (quantity > 0, price > 0) except the returns metric, which reads credit notes.
  */
 import { unstable_cache } from 'next/cache'
 import { sql } from 'drizzle-orm'
 import { getDb } from '@/db'
 
-// The Online Retail II dataset is static once seeded, so query results are cached
-// across requests (revalidated hourly). First load pays the ~4s; every load after
-// is served from the data cache — keeping the Decision Center and advisor snappy.
-// Bump the revalidate window or call revalidateTag('operations') after a re-ETL.
-const CACHE = { revalidate: 3600, tags: ['operations'] }
+// Results are cached per workspace (tag `ws:<id>`), revalidated hourly and
+// invalidated immediately whenever that workspace imports or undoes data.
+// The demo sample's first load pays ~4s over ~1M rows; every load after is a
+// cache hit.
+function cached<A extends unknown[], R>(name: string, fn: (ws: string, ...a: A) => Promise<R>) {
+  return (ws: string, ...args: A): Promise<R> =>
+    unstable_cache(() => fn(ws, ...args), ['ops', name, ws, JSON.stringify(args)], { revalidate: 3600, tags: [`ws:${ws}`] })()
+}
 
 export type Grain = 'day' | 'week' | 'month'
 const GRAIN_UNIT: Record<Grain, string> = { day: 'day', week: 'week', month: 'month' }
@@ -35,7 +38,7 @@ export interface OpsKpis {
   observedDays: number
 }
 
-async function getKpisImpl(): Promise<OpsKpis> {
+async function getKpisImpl(ws: string): Promise<OpsKpis> {
   const db = getDb()
   const [mainRes, custRes] = await Promise.all([
     db.execute(sql`
@@ -46,8 +49,9 @@ async function getKpisImpl(): Promise<OpsKpis> {
         MAX(invoice_date)::date AS date_max,
         COALESCE(SUM(CASE WHEN line_revenue < 0 OR quantity < 0 THEN ABS(line_revenue) END), 0) AS returns_value
       FROM operations_invoice_lines
+      WHERE workspace_id = ${ws}
     `),
-    db.execute(sql`SELECT COUNT(*)::int AS c FROM operations_customers`),
+    db.execute(sql`SELECT COUNT(*)::int AS c FROM operations_customers WHERE workspace_id = ${ws}`),
   ])
   const r = rowsOf(mainRes)[0]
   const custRow = rowsOf(custRes)[0]
@@ -71,32 +75,32 @@ async function getKpisImpl(): Promise<OpsKpis> {
 }
 
 /** Net revenue time series at the requested grain (clean sale lines only). */
-async function getRevenueSeriesImpl(grain: Grain = 'week'): Promise<{ dates: string[]; values: number[] }> {
+async function getRevenueSeriesImpl(ws: string, grain: Grain = 'week'): Promise<{ dates: string[]; values: number[] }> {
   const unit = GRAIN_UNIT[grain]
   const r = rowsOf(
     await getDb().execute(sql`
       SELECT to_char(date_trunc(${unit}, invoice_date), 'YYYY-MM-DD') AS d,
              ROUND(SUM(line_revenue)::numeric, 2) AS revenue
       FROM operations_invoice_lines
-      WHERE quantity > 0 AND unit_price > 0
+      WHERE workspace_id = ${ws} AND quantity > 0 AND unit_price > 0
       GROUP BY 1 ORDER BY 1
     `),
   )
   return { dates: r.map((x) => String(x.d)), values: r.map((x) => Math.round(num(x.revenue))) }
 }
 
-async function getCustomerRowsImpl() {
+async function getCustomerRowsImpl(ws: string) {
   const r = rowsOf(
     await getDb().execute(sql`
-      WITH maxd AS (SELECT MAX(invoice_date) AS m FROM operations_invoice_lines)
+      WITH maxd AS (SELECT MAX(invoice_date) AS m FROM operations_invoice_lines WHERE workspace_id = ${ws})
       SELECT i.customer_id,
              MAX(i.country) AS country,
              EXTRACT(DAY FROM ((SELECT m FROM maxd) - MAX(l.invoice_date))) AS recency_days,
              COUNT(DISTINCT l.invoice) AS frequency,
              ROUND(SUM(l.line_revenue)::numeric, 2) AS monetary
       FROM operations_invoice_lines l
-      JOIN operations_invoices i ON i.invoice = l.invoice
-      WHERE i.customer_id IS NOT NULL AND l.quantity > 0 AND l.unit_price > 0
+      JOIN operations_invoices i ON i.workspace_id = l.workspace_id AND i.invoice = l.invoice
+      WHERE l.workspace_id = ${ws} AND i.customer_id IS NOT NULL AND l.quantity > 0 AND l.unit_price > 0
       GROUP BY i.customer_id
     `),
   )
@@ -110,14 +114,14 @@ async function getCustomerRowsImpl() {
 }
 
 /** Per-product demand stats for the inventory/pricing engines (top N by revenue). */
-async function getDemandRowsImpl(limit = 200) {
+async function getDemandRowsImpl(ws: string, limit = 200) {
   const r = rowsOf(
     await getDb().execute(sql`
       WITH daily AS (
         SELECT l.stock_code, date_trunc('day', l.invoice_date) AS d,
                SUM(l.quantity) AS qty, AVG(l.unit_price) AS price
         FROM operations_invoice_lines l
-        WHERE l.quantity > 0 AND l.unit_price > 0
+        WHERE l.workspace_id = ${ws} AND l.quantity > 0 AND l.unit_price > 0
         GROUP BY 1, 2
       )
       SELECT d.stock_code,
@@ -125,7 +129,7 @@ async function getDemandRowsImpl(limit = 200) {
              AVG(d.qty) AS avg_daily, COALESCE(STDDEV_SAMP(d.qty), 0) AS std_daily,
              AVG(d.price) AS unit_price, SUM(d.qty) AS total_qty
       FROM daily d
-      JOIN operations_products p ON p.stock_code = d.stock_code
+      JOIN operations_products p ON p.workspace_id = ${ws} AND p.stock_code = d.stock_code
       GROUP BY d.stock_code, p.description, p.category, p.assumed_cost_ratio
       ORDER BY SUM(d.qty * d.price) DESC
       LIMIT ${limit}
@@ -147,30 +151,30 @@ async function getDemandRowsImpl(limit = 200) {
 }
 
 /** Category revenue for the last `windowDays` vs the prior `windowDays` (root cause). */
-async function getCategoryComparisonImpl(windowDays = 90) {
+async function getCategoryComparisonImpl(ws: string, windowDays = 90) {
   const r = rowsOf(
     await getDb().execute(sql`
-      WITH bounds AS (SELECT MAX(invoice_date) AS maxd FROM operations_invoice_lines)
+      WITH bounds AS (SELECT MAX(invoice_date) AS maxd FROM operations_invoice_lines WHERE workspace_id = ${ws})
       SELECT p.category,
         COALESCE(SUM(CASE WHEN l.invoice_date > (SELECT maxd FROM bounds) - (${windowDays} || ' days')::interval THEN l.line_revenue END), 0) AS current,
         COALESCE(SUM(CASE WHEN l.invoice_date <= (SELECT maxd FROM bounds) - (${windowDays} || ' days')::interval
                           AND l.invoice_date > (SELECT maxd FROM bounds) - (${windowDays * 2} || ' days')::interval THEN l.line_revenue END), 0) AS prior
       FROM operations_invoice_lines l
-      JOIN operations_products p ON p.stock_code = l.stock_code
-      WHERE l.quantity > 0 AND l.unit_price > 0
+      JOIN operations_products p ON p.workspace_id = l.workspace_id AND p.stock_code = l.stock_code
+      WHERE l.workspace_id = ${ws} AND l.quantity > 0 AND l.unit_price > 0
       GROUP BY p.category
     `),
   )
   return r.map((x) => ({ name: String(x.category ?? 'Other'), current: num(x.current), prior: num(x.prior) }))
 }
 
-async function getTopProductsImpl(limit = 10, ascending = false) {
+async function getTopProductsImpl(ws: string, limit = 10, ascending = false) {
   const r = rowsOf(
     await getDb().execute(sql`
       SELECT p.description, ROUND(SUM(l.line_revenue)::numeric, 2) AS revenue
       FROM operations_invoice_lines l
-      JOIN operations_products p ON p.stock_code = l.stock_code
-      WHERE l.quantity > 0 AND l.unit_price > 0
+      JOIN operations_products p ON p.workspace_id = l.workspace_id AND p.stock_code = l.stock_code
+      WHERE l.workspace_id = ${ws} AND l.quantity > 0 AND l.unit_price > 0
       GROUP BY p.description
       ORDER BY SUM(l.line_revenue) ${ascending ? sql`ASC` : sql`DESC`}
       LIMIT ${limit}
@@ -180,13 +184,11 @@ async function getTopProductsImpl(limit = 10, ascending = false) {
 }
 
 /* ── Cached exports ──────────────────────────────────────────────────────────
- * Every consumer (Decision Center, Reports, Advisor API, sub-pages) imports these
- * names; wrapping the impls in unstable_cache memoizes the expensive queries
- * across requests. Arguments are part of the cache key, so each grain / window /
- * limit caches independently. */
-export const getKpis = unstable_cache(getKpisImpl, ['ops:kpis'], CACHE)
-export const getRevenueSeries = unstable_cache(getRevenueSeriesImpl, ['ops:revenue-series'], CACHE)
-export const getCustomerRows = unstable_cache(getCustomerRowsImpl, ['ops:customers'], CACHE)
-export const getDemandRows = unstable_cache(getDemandRowsImpl, ['ops:demand'], CACHE)
-export const getCategoryComparison = unstable_cache(getCategoryComparisonImpl, ['ops:category-cmp'], CACHE)
-export const getTopProducts = unstable_cache(getTopProductsImpl, ['ops:top-products'], CACHE)
+ * Every consumer imports these; the first argument is always the workspace id
+ * (from resolveDataSource). Remaining arguments join the cache key. */
+export const getKpis = cached('kpis', getKpisImpl)
+export const getRevenueSeries = cached('revenue-series', getRevenueSeriesImpl)
+export const getCustomerRows = cached('customers', getCustomerRowsImpl)
+export const getDemandRows = cached('demand', getDemandRowsImpl)
+export const getCategoryComparison = cached('category-cmp', getCategoryComparisonImpl)
+export const getTopProducts = cached('top-products', getTopProductsImpl)

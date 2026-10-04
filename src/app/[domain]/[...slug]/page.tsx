@@ -27,8 +27,10 @@ const PHASE: Record<string, string> = {
 
 export default async function DomainSubPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ domain: string; slug: string[] }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { domain, slug } = await params
   const mod = getDomain(domain)
@@ -40,7 +42,7 @@ export default async function DomainSubPage({
   if (!navItem) notFound()
 
   const page = resolvePage(mod.id, first)
-  if (page) return createElement(page)
+  if (page) return createElement(page, { searchParams: await searchParams })
 
   return <Placeholder title={navItem.label} tagline={mod.tagline} phase={PHASE[mod.id] ?? 'a later phase'} />
 }

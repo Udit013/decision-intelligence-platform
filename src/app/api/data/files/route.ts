@@ -1,19 +1,21 @@
-/** GET /api/data/files — list workspace files (newest first), optional ?scope= filter. */
+/** GET /api/data/files[?scope=…] — the caller's workspace files, newest first. */
 import { NextResponse } from 'next/server'
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq, or } from 'drizzle-orm'
 import { getDb } from '@/db'
 import { workspaceFiles } from '@/db/schema'
-import { toDto, isScope, dbUnavailable } from '../_lib'
+import { toDto, isScope, dbUnavailable, requireWorkspace } from '../_lib'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: Request) {
+  const ws = await requireWorkspace()
+  if (ws instanceof NextResponse) return ws
   const scope = new URL(req.url).searchParams.get('scope')
   try {
-    const db = getDb()
-    const rows = await (isScope(scope)
-      ? db.select().from(workspaceFiles).where(eq(workspaceFiles.scope, scope)).orderBy(desc(workspaceFiles.createdAt))
-      : db.select().from(workspaceFiles).orderBy(desc(workspaceFiles.createdAt)))
+    const where = isScope(scope)
+      ? and(eq(workspaceFiles.workspaceId, ws), or(eq(workspaceFiles.scope, scope), eq(workspaceFiles.scope, 'shared')))
+      : eq(workspaceFiles.workspaceId, ws)
+    const rows = await getDb().select().from(workspaceFiles).where(where).orderBy(desc(workspaceFiles.createdAt))
     return NextResponse.json({ files: rows.map(toDto) })
   } catch (e) {
     return dbUnavailable(e)

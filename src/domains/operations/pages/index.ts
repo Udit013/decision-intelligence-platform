@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import type { DomainPageProps } from '../../pages'
 import DecisionCenter from './DecisionCenter'
 import Forecasting from './Forecasting'
 import Customers from './Customers'
@@ -9,7 +10,7 @@ import Reports from './Reports'
 import Advisor from './Advisor'
 
 /** Maps a domain nav slug to its page component ('' = the domain home). */
-export const operationsPages: Record<string, ComponentType> = {
+export const operationsPages: Record<string, ComponentType<DomainPageProps>> = {
   '': DecisionCenter,
   forecasting: Forecasting,
   customers: Customers,

@@ -1,31 +1,39 @@
-/** Market domain types (ported from geostrategy). All values are SYNTHETIC demo data. */
+/**
+ * Market domain types. A market comes either from the synthetic sample or from
+ * a visitor's uploaded indicators; every indicator is optional (null = not
+ * provided) and scores are computed only from what is present.
+ */
 
 export interface Market {
   id: string
   name: string
-  code: string
-  continent: string
-  gdp: number // USD billions
-  gdpGrowth: number // %
-  gdpPerCapita: number // USD
-  population: number // millions
-  internetPenetration: number
-  mobileAdoption: number
-  urbanization: number
-  avgIncome: number
-  purchasingPowerIndex: number
-  easeOfDoingBusiness: number
-  taxRate: number
-  inflationRate: number
-  currencyStability: number
-  consumerSpending: number // USD billions
-  industryGrowth: Record<string, number>
-  marketAttractivenessScore: number
-  opportunityScore: number
-  riskScore: number
-  easeOfEntry: number
-  historicalGdp: Array<{ year: number; value: number }>
-  historicalGrowth: Array<{ year: number; value: number }>
+  code: string | null
+  continent: string | null
+  gdp: number | null // USD billions
+  gdpGrowth: number | null // %
+  gdpPerCapita: number | null // USD
+  population: number | null // millions
+  internetPenetration: number | null
+  mobileAdoption: number | null
+  urbanization: number | null
+  avgIncome: number | null
+  purchasingPowerIndex: number | null
+  easeOfDoingBusiness: number | null
+  taxRate: number | null
+  inflationRate: number | null
+  currencyStability: number | null
+  /** MODELED from GDP and income (null when either is missing). */
+  consumerSpending: number | null // USD billions
+  marketAttractivenessScore: number | null
+  opportunityScore: number | null
+  riskScore: number | null
+  easeOfEntry: number | null
+  /** Share (0–1) of scoring inputs this market actually provided. */
+  dataCoverage: number
+  /** Synthetic-sample extras (never derived for uploaded data). */
+  industryGrowth?: Record<string, number>
+  historicalGdp?: Array<{ year: number; value: number }>
+  historicalGrowth?: Array<{ year: number; value: number }>
 }
 
 export interface CompetitorEntry {
@@ -76,12 +84,12 @@ export interface EntryStrategyOption {
 }
 
 export interface RiskProfile {
-  overall: number
-  economic: number
-  competitive: number
-  regulatory: number
-  operational: number
-  market: number
+  overall: number | null
+  economic: number | null
+  competitive: number | null
+  regulatory: number | null
+  operational: number | null
+  market: number | null
   mitigations: string[]
 }
 
@@ -94,14 +102,16 @@ export interface MarketDecision {
   /** 0–100 composite from core scoreAndClassify (modeled). */
   score: number
   rank: number
-  opportunityScore: number
-  riskScore: number
-  easeOfEntry: number
-  gdpGrowth: number
-  marketSize: number
+  opportunityScore: number | null
+  riskScore: number | null
+  easeOfEntry: number | null
+  gdpGrowth: number | null
+  marketSize: number | null
+  /** Share (0–1) of the decision criteria this market had data for. */
+  coverage: number
   /** modeled ROI multiple */
   expectedRoi: number
-  investmentRequired: number // USD thousands
+  investmentRequired: number | null // USD thousands
   reasoning: string
   keyDrivers: string[]
   /** per-criterion contributions to the score (the auditable "why") */

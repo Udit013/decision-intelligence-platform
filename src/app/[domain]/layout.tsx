@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { getDomain } from '@/core/registry'
 import { ACCENT_HEX } from '@/ui/accents'
 import { DomainSwitcher } from '@/ui/components/DomainSwitcher'
-import { ProvenanceBadge } from '@/ui/components/Badge'
 import { Logo } from '@/ui/components/Logo'
 import { DatasetStatus } from '@/ui/components/DatasetStatus'
 import { DomainNav } from './DomainNav'
@@ -30,7 +29,7 @@ export default async function DomainLayout({
         Skip to content
       </a>
 
-      {/* Masthead: wordmark · module tabs · data + provenance. */}
+      {/* Masthead: wordmark · module tabs · data. */}
       <header className="sticky top-0 z-40 border-b border-border bg-surface/85 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-0 px-4 sm:px-6">
           <Link href="/" className="py-3 transition-opacity hover:opacity-75">
@@ -44,13 +43,12 @@ export default async function DomainLayout({
             >
               Upload / manage data
             </Link>
-            <ProvenanceBadge provenance={mod.provenance} source={mod.dataSource} />
           </div>
         </div>
       </header>
 
       {/* Statusline: streams in after the page; fails soft without a DB. */}
-      <Suspense fallback={<div className="h-[29px] border-b border-border/70 bg-surface-2/40" />}>
+      <Suspense fallback={<div className="h-[33px] border-b border-border/70 bg-surface-2/40" />}>
         <DatasetStatus domain={mod.id} />
       </Suspense>
 

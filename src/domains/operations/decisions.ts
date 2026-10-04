@@ -8,12 +8,7 @@
  * signals like customer value at risk.
  */
 import { synthesize, type Signal, type Recommendation } from '@/core/recommend'
-
-const money = (n: number) => {
-  const a = Math.abs(Math.round(n))
-  const s = a >= 1e6 ? `£${(a / 1e6).toFixed(2)}M` : a >= 1e3 ? `£${(a / 1e3).toFixed(1)}K` : `£${a}`
-  return n < 0 ? `-${s}` : s
-}
+import { money as formatMoney } from './format'
 
 export interface DecisionInputs {
   forecast: {
@@ -27,9 +22,12 @@ export interface DecisionInputs {
   customers: { atRiskValue: number; atRiskCount: number; vipValue: number; vipCount: number }
   returns: { value: number; ratePct: number }
   rootCause: { changePct: number; topDrag: string | null; topDriver: string | null } | null
+  /** Currency symbol for display ('' when unknown). */
+  currency?: string
 }
 
 export function buildOperationsDecisions(inp: DecisionInputs): Recommendation[] {
+  const money = (n: number) => formatMoney(n, inp.currency ?? '')
   const signals: Signal[] = []
   const f = inp.forecast
   const growing = f.trendPerStep >= 0

@@ -1,12 +1,12 @@
 import { getDemandRows } from '../data'
+import { opsSource } from '../source'
 import { simulatePrice, simulatePromo, PROMOS, CATEGORY_ELASTICITY, type Baseline } from '../pricing'
 import type { OperationsCategory } from '../assumptions'
 import { COST_ASSUMPTION_NOTE } from '../assumptions'
-import { gbp } from '../format'
 import { Card, CardBody, CardHeader, CardTitle } from '@/ui/components/Card'
 import { PageHeader, EmptyState } from '@/ui/components/Kpi'
 
-function ScenarioTable({ base }: { base: Baseline }) {
+function ScenarioTable({ base, money }: { base: Baseline; money: (n: number) => string }) {
   const rows = [
     simulatePrice(base, -20),
     simulatePrice(base, -10),
@@ -31,10 +31,10 @@ function ScenarioTable({ base }: { base: Baseline }) {
         {rows.map((r) => (
           <tr key={r.label} className="border-b border-border/50">
             <td className="py-2">{r.label}</td>
-            <td className="py-2 text-right tabular-nums">{gbp(r.price)}</td>
+            <td className="py-2 text-right tabular-nums">{money(r.price)}</td>
             <td className="py-2 text-right tabular-nums">{r.units.toLocaleString()}</td>
-            <td className="py-2 text-right tabular-nums">{gbp(r.revenue)}</td>
-            <td className="py-2 text-right tabular-nums">{gbp(r.profit)}</td>
+            <td className="py-2 text-right tabular-nums">{money(r.revenue)}</td>
+            <td className="py-2 text-right tabular-nums">{money(r.profit)}</td>
             <td className={`py-2 text-right tabular-nums ${r.profitDeltaPct >= 0 ? 'text-good' : 'text-bad'}`}>
               {r.profitDeltaPct >= 0 ? '+' : ''}{r.profitDeltaPct}%
             </td>
@@ -46,9 +46,10 @@ function ScenarioTable({ base }: { base: Baseline }) {
 }
 
 export default async function Pricing() {
+  const { ws, money } = await opsSource()
   let top = null
   try {
-    const rows = await getDemandRows(20)
+    const rows = ws ? await getDemandRows(ws, 20) : []
     top = rows[0] ?? null
   } catch {
     top = null
@@ -84,9 +85,9 @@ export default async function Pricing() {
         </CardHeader>
         <CardBody>
           <p className="mb-4 text-xs text-muted">
-            Baseline: price {gbp(base.basePrice)}, ~{base.baseUnits.toLocaleString()} units/mo, est. unit cost {gbp(base.unitCost)}.
+            Baseline: price {money(base.basePrice)}, ~{base.baseUnits.toLocaleString()} units/mo, est. unit cost {money(base.unitCost)}.
           </p>
-          <ScenarioTable base={base} />
+          <ScenarioTable money={money} base={base} />
         </CardBody>
       </Card>
     </>

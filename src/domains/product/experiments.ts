@@ -5,7 +5,7 @@
  */
 import { calculateABTest, type ABTestResult } from '@/core/stats'
 
-interface RawExperiment {
+export interface RawExperiment {
   name: string
   hypothesis: string
   controlConversions: number

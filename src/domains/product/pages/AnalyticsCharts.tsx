@@ -19,12 +19,12 @@ export function FunnelChart({ steps }: { steps: { step: string; users: number }[
   )
 }
 
-export function RetentionCurve({ pooled }: { pooled: { offset: number; ratePct: number }[] }) {
+export function RetentionCurve({ pooled }: { pooled: { offset: number; ratePct: number | null }[] }) {
   return (
     <Chart
       height={260}
       option={{
-        tooltip: { trigger: 'axis', valueFormatter: (v: unknown) => `${v}%` },
+        tooltip: { trigger: 'axis', valueFormatter: (v: unknown) => (v === null || v === undefined ? 'not measurable yet' : `${v}%`) },
         xAxis: { type: 'category', data: pooled.map((p) => `D${p.offset}`) },
         yAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' }, splitLine: { lineStyle: { color: CHART.grid } } },
         series: [{ type: 'line', data: pooled.map((p) => p.ratePct), smooth: true, areaStyle: { color: ACCENT_FILL.lime }, itemStyle: { color: ACCENT.lime }, lineStyle: { color: ACCENT.lime, width: 2 }, symbolSize: 6 }],
@@ -38,10 +38,12 @@ export function CohortHeatmap({ matrix, offsets }: { matrix: CohortRow[]; offset
   const data: [number, number, number][] = []
   rows.forEach((row, y) => {
     offsets.forEach((off, x) => {
-      const rate = row.cells.find((c) => c.offset === off)?.rate ?? 0
-      data.push([x, y, Math.round(rate * 100)])
+      // Cells absent from the matrix aren't observable yet (censored) — leave them blank, not 0%.
+      const cell = row.cells.find((c) => c.offset === off)
+      if (cell) data.push([x, y, Math.round(cell.rate * 100)])
     })
   })
+  if (!rows.length) return <p className="text-sm text-muted">Cohorts need at least 5 users to be shown.</p>
   return (
     <Chart
       height={Math.max(220, rows.length * 28 + 80)}

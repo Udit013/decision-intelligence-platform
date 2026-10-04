@@ -1,23 +1,25 @@
 /**
- * ETL: UCI Online Retail II (.xlsx) → Neon Postgres (operations_* tables).
+ * ETL: UCI Online Retail II (.xlsx) → the read-only DEMO workspace's
+ * operations_* tables (visitor workspaces are never touched).
  *
  * Prints a DATA-QUALITY report PRE-SEED (you see what you're loading before any
  * write), then normalizes into customers / products / invoices / invoice_lines.
  * The derived category + assumed cost ratio (see src/domains/operations/assumptions)
  * are written to operations_products and clearly flagged as estimates everywhere.
  *
- * Run (after `npm run db:push` and with DATABASE_URL set):
+ * Run (after `npm run db:migrate` and with DATABASE_URL set):
  *   npx tsx --max-old-space-size=4096 scripts/etl-operations.ts
  */
 import 'dotenv/config'
 import { getDb } from '../src/db/index'
 import {
+  dataImports,
   operationsCustomers,
   operationsProducts,
   operationsInvoices,
   operationsInvoiceLines,
-  operationsEtlLogs,
 } from '../src/db/schema'
+import { DEMO_WORKSPACE_ID, DEMO_OPERATIONS_IMPORT_ID } from '../src/db/ids'
 import { loadRetailRows, profile, printQuality } from './lib/load-retail'
 import { deriveCategory, assumedCostRatioFor } from '../src/domains/operations/assumptions'
 
@@ -40,23 +42,34 @@ async function main() {
   // Refuse to seed over existing data unless --force, which wipes and reloads.
   const { sql } = await import('drizzle-orm')
   const countRes = (await db.execute(
-    sql`SELECT COUNT(*)::int AS c FROM operations_invoice_lines`,
+    sql`SELECT COUNT(*)::int AS c FROM operations_invoice_lines WHERE workspace_id = ${DEMO_WORKSPACE_ID}`,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   )) as any
   const existing = Number((Array.isArray(countRes) ? countRes[0] : countRes.rows?.[0])?.c ?? 0)
   if (existing > 0) {
     if (!process.argv.includes('--force')) {
       console.error(
-        `\n✗ operations_invoice_lines already has ${existing.toLocaleString()} rows.` +
+        `\n✗ The demo workspace already has ${existing.toLocaleString()} order lines.` +
           `\n  Re-running would duplicate every metric. To wipe and reload, run with --force.\n`,
       )
       process.exit(1)
     }
-    console.log(`--force: truncating existing operations data (${existing.toLocaleString()} lines)...`)
-    await db.execute(
-      sql`TRUNCATE operations_invoice_lines, operations_invoices, operations_customers, operations_products`,
-    )
+    console.log(`--force: removing the demo workspace's operations data (${existing.toLocaleString()} lines)...`)
+    for (const t of ['operations_invoice_lines', 'operations_invoices', 'operations_customers', 'operations_products']) {
+      await db.execute(sql`DELETE FROM ${sql.identifier(t)} WHERE workspace_id = ${DEMO_WORKSPACE_ID}`)
+    }
   }
+  // The import ledger row that owns the sample (lines reference it by FK).
+  await db.delete(dataImports).where(sql`${dataImports.id} = ${DEMO_OPERATIONS_IMPORT_ID}`)
+  await db.insert(dataImports).values({
+    id: DEMO_OPERATIONS_IMPORT_ID,
+    workspaceId: DEMO_WORKSPACE_ID,
+    domain: 'operations',
+    kind: 'operations.order_lines',
+    label: 'UCI Online Retail II — sample dataset (CLI ETL)',
+    status: 'committed',
+    committedAt: new Date(),
+  })
 
   console.log('Loading workbook...')
   const rows = loadRetailRows()
@@ -86,6 +99,8 @@ async function main() {
     else if (r.invoiceDate < inv.date) inv.date = r.invoiceDate
 
     lines.push({
+      workspaceId: DEMO_WORKSPACE_ID,
+      importId: DEMO_OPERATIONS_IMPORT_ID,
       invoice: r.invoice,
       stockCode: r.stockCode,
       quantity: r.quantity,
@@ -100,12 +115,13 @@ async function main() {
   console.log('→ products')
   const productRows = [...products.entries()].map(([stockCode, description]) => {
     const category = deriveCategory(description)
-    return { stockCode, description, category, assumedCostRatio: assumedCostRatioFor(category) }
+    return { workspaceId: DEMO_WORKSPACE_ID, stockCode, description, category, assumedCostRatio: assumedCostRatioFor(category) }
   })
   await chunkInsert(productRows, 1000, (b) => db.insert(operationsProducts).values(b).onConflictDoNothing())
 
   console.log('→ customers')
   const customerRows = [...customers.entries()].map(([customerId, c]) => ({
+    workspaceId: DEMO_WORKSPACE_ID,
     customerId,
     country: c.country,
     firstSeen: c.first,
@@ -115,6 +131,7 @@ async function main() {
 
   console.log('→ invoices')
   const invoiceRows = [...invoices.entries()].map(([invoice, v]) => ({
+    workspaceId: DEMO_WORKSPACE_ID,
     invoice,
     invoiceDate: v.date,
     customerId: v.customerId,
@@ -126,13 +143,11 @@ async function main() {
   console.log('→ invoice_lines')
   await chunkInsert(lines, 1000, (b) => db.insert(operationsInvoiceLines).values(b))
 
-  await db.insert(operationsEtlLogs).values({
-    source: 'UCI Online Retail II',
-    totalRows: q.totalRows,
-    insertedRows: lines.length,
-    skippedRows: q.totalRows - lines.length,
-    notes: `clean=${q.cleanSaleRows}, cancellations=${q.cancellations}, missingCustomerId=${q.missingCustomerId}, duplicates=${q.exactDuplicates}`,
-  })
+  await db
+    .update(dataImports)
+    .set({ rowsTotal: q.totalRows, rowsInserted: lines.length, rowsSkipped: q.totalRows - lines.length })
+    .where(sql`${dataImports.id} = ${DEMO_OPERATIONS_IMPORT_ID}`)
+  console.log(`quality: clean=${q.cleanSaleRows}, cancellations=${q.cancellations}, missingCustomerId=${q.missingCustomerId}, duplicates=${q.exactDuplicates}`)
 
   console.log('\n✓ ETL complete.')
   process.exit(0)

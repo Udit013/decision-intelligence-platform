@@ -11,17 +11,17 @@ import { computeCustomers } from './customers'
 import { assembleRootCause } from './rootcause'
 import { buildOperationsDecisions } from './decisions'
 
-export async function buildSnapshot() {
+export async function buildSnapshot(ws: string, currency = '') {
   try {
     // The four queries are independent — run them in parallel so the Decision
     // Center is one round-trip's worth of latency, not five sequential ones.
     // (This was ~5.6s sequential and risked the serverless timeout on cold start,
     // which made buildSnapshot's catch fire and show a misleading "no data" state.)
     const [kpis, rev, custRows, cats] = await Promise.all([
-      getKpis(),
-      getRevenueSeries('week'),
-      getCustomerRows(),
-      getCategoryComparison(90),
+      getKpis(ws),
+      getRevenueSeries(ws, 'week'),
+      getCustomerRows(ws),
+      getCategoryComparison(ws, 90),
     ])
     if (!kpis.orders) return null // genuinely unseeded
 
@@ -39,10 +39,12 @@ export async function buildSnapshot() {
       customers: summary,
       returns,
       rootCause: rc,
+      currency,
     })
 
-    return { kpis, fc, projectedTotal, horizon, backtestAccuracy, customers: summary, rootCause: rc, returns, decisions }
-  } catch {
+    return { currency, kpis, fc, projectedTotal, horizon, backtestAccuracy, customers: summary, rootCause: rc, returns, decisions }
+  } catch (e) {
+    console.error('[operations-snapshot]', e)
     return null
   }
 }

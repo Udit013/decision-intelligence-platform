@@ -1,13 +1,15 @@
 import { getDemandRows } from '../data'
+import { opsSource } from '../source'
 import { computeInventoryPlan, INVENTORY_DEFAULTS } from '../inventory'
 import { COST_ASSUMPTION_NOTE } from '../assumptions'
 import { Card, CardBody, CardHeader, CardTitle } from '@/ui/components/Card'
 import { PageHeader, EmptyState } from '@/ui/components/Kpi'
 
 export default async function Inventory() {
+  const { ws } = await opsSource()
   let plan = null
   try {
-    const rows = await getDemandRows(50)
+    const rows = ws ? await getDemandRows(ws, 50) : []
     if (rows.length) plan = computeInventoryPlan(rows)
   } catch {
     plan = null

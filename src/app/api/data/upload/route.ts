@@ -1,18 +1,23 @@
 /**
- * POST /api/data/upload — multipart upload into the shared data workspace.
- * Fields: file (one file per request; the client uploads multiple sequentially
- * for per-file progress), scope (optional, default "shared").
- * Validates format + size, parses tabular formats, stores raw + metadata.
+ * POST /api/data/upload — multipart upload into the caller's private workspace.
+ * Fields: file (one per request; the client uploads sequentially for per-file
+ * progress), scope (optional, default "shared"). Validates format, size and
+ * quotas, parses tabular formats, and stores raw bytes + a content hash.
  */
 import { NextResponse } from 'next/server'
 import { getDb } from '@/db'
 import { workspaceFiles } from '@/db/schema'
 import { validateUpload, detectFormat, parseBuffer, quotaError, MAX_NAME_LENGTH } from '@/core/workspace'
-import { toDto, badRequest, isScope, dbUnavailable, workspaceUsage } from '../_lib'
+import { GLOBAL_FILE_BYTES_CAP } from '@/core/imports/limits'
+import { sha256Hex } from '@/core/imports/keys'
+import { toDto, badRequest, isScope, dbUnavailable, workspaceUsage, requireWorkspace } from '../_lib'
 
 export const maxDuration = 30
 
 export async function POST(req: Request) {
+  const ws = await requireWorkspace()
+  if (ws instanceof NextResponse) return ws
+
   let form: FormData
   try {
     form = await req.formData()
@@ -34,12 +39,14 @@ export async function POST(req: Request) {
 
   try {
     const db = getDb()
-    const overQuota = quotaError(await workspaceUsage(db), file.size)
+    const usage = await workspaceUsage(db, ws)
+    const overQuota = quotaError(usage, file.size, { bytes: usage.globalBytes, cap: GLOBAL_FILE_BYTES_CAP })
     if (overQuota) return NextResponse.json({ error: overQuota }, { status: 413 })
 
     const [row] = await db
       .insert(workspaceFiles)
       .values({
+        workspaceId: ws,
         name: file.name.replace(/\.[^.]+$/, '').slice(0, MAX_NAME_LENGTH) || 'untitled',
         originalFilename: file.name.slice(0, 255),
         format,
@@ -52,6 +59,7 @@ export async function POST(req: Request) {
         sampleRows: parsed.table?.sampleRows ?? null,
         textPreview: parsed.textPreview ?? null,
         rawBase64: Buffer.from(bytes).toString('base64'),
+        contentHash: sha256Hex(bytes),
       })
       .returning()
     return NextResponse.json({ file: toDto(row) }, { status: 201 })

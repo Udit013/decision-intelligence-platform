@@ -1,16 +1,28 @@
 import { discoverOpportunities } from '../opportunities'
+import { getProductDataset } from '../dataset'
 import { PRODUCT_META } from '../config'
 import { Card, CardBody } from '@/ui/components/Card'
 import { Badge } from '@/ui/components/Badge'
-import { PageHeader } from '@/ui/components/Kpi'
+import { PageHeader, EmptyState } from '@/ui/components/Kpi'
 import { DemoBanner } from '@/ui/components/DemoBanner'
 
-export default function Opportunities() {
-  const opps = discoverOpportunities()
+const TAGLINE = 'Signals surfaced from the measured analytics — under-adopted features, funnel leaks, retention risk.'
+
+export default async function Opportunities() {
+  const ds = await getProductDataset()
+  if (!ds.hasEvents) {
+    return (
+      <>
+        <PageHeader title="Opportunity Engine" tagline={TAGLINE} />
+        <EmptyState domain="product" />
+      </>
+    )
+  }
+  const opps = discoverOpportunities(ds)
   return (
     <>
-      <PageHeader title="Opportunity Engine" tagline="Signals surfaced from the measured analytics — under-adopted features, funnel leaks, retention risk." />
-      <DemoBanner note={PRODUCT_META.demoNote} />
+      <PageHeader title="Opportunity Engine" tagline={TAGLINE} />
+      {ds.source.kind === 'demo' && <DemoBanner note={PRODUCT_META.demoNote} />}
       <div className="grid gap-3 sm:grid-cols-2">
         {opps.map((o) => (
           <Card key={o.id}>

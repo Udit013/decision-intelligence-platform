@@ -22,11 +22,11 @@ repository** as of this writing. Nothing here is aspirational or assumed.
 5. [The `/core` Engine — File by File](#5-the-core-engine--file-by-file)
 6. [The Domains — File by File](#6-the-domains--file-by-file)
 7. [The App Router (`/src/app`) — File by File](#7-the-app-router-srcapp--file-by-file)
-8. [The Data Workspace (Upload Feature) — Deep Dive](#8-the-data-workspace-upload-feature--deep-dive)
+8. [Bring Your Own Data — Workspaces, Imports and Undo](#8-bring-your-own-data--workspaces-imports-and-undo)
 9. [The UI Component Library (`/src/ui`)](#9-the-ui-component-library-srcui)
 10. [The Database](#10-the-database)
 11. [Every API Endpoint](#11-every-api-endpoint)
-12. [Authentication (and Why There Isn't Any)](#12-authentication-and-why-there-isnt-any)
+12. [Identity: Private Workspaces Instead of Accounts](#12-identity-private-workspaces-instead-of-accounts)
 13. [State Management](#13-state-management)
 14. [Every Important Library, Explained](#14-every-important-library-explained)
 15. [Every Configuration File, Explained](#15-every-configuration-file-explained)
@@ -202,27 +202,30 @@ the database queries are **cached** (explained in
                                  ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  VERCEL EDGE / SERVERLESS (Next.js 16, App Router)                      │
+│  src/proxy.ts: issue anonymous workspace cookie · reject cross-origin   │
+│  writes (CSRF) · then route to pages / API                               │
 │                                                                          │
 │  ┌────────────────────────┐   ┌───────────────────────────────────┐    │
 │  │  PAGES (Server          │   │  API ROUTES (Route Handlers)      │    │
 │  │  Components)            │   │  src/app/api/**/route.ts          │    │
-│  │  src/app/**/page.tsx    │   │  - /api/data/*      (workspace)   │    │
-│  │  - fetch data async     │   │  - /api/*/advisor   (AI chat)     │    │
-│  │  - render JSX → HTML    │   │  - /api/operations/health         │    │
+│  │  src/app/**/page.tsx    │   │  - /api/data/*  upload·import·undo│    │
+│  │  - fetch data async     │   │  - /api/workspace/* mode·link·erase│   │
+│  │  - render JSX → HTML    │   │  - /api/*/advisor · /health        │    │
 │  └───────────┬─────────────┘   └───────────────┬───────────────────┘    │
 │              │                                  │                       │
 │              ▼                                  ▼                       │
 │  ┌───────────────────────────────────────────────────────────────┐     │
 │  │  /src/domains  (domain-specific glue: config, data adapters,   │     │
 │  │  advisor wiring, page components) — ONE PER MODULE:            │     │
-│  │  operations/ (real DB)   market/ (in-memory)   product/ (in-memory) │
+│  │  each reads the visitor's workspace OR its sample (resolveDataSource)│
+│  │  src/server/imports.ts: preview · commit · undo (one transaction)    │
 │  └───────────┬───────────────────────────────────────────────────┘     │
 │              │ calls into                                               │
 │              ▼                                                          │
 │  ┌───────────────────────────────────────────────────────────────┐     │
 │  │  /src/core  (shared, domain-agnostic analytics engine)          │     │
 │  │  stats · forecast · scoring · recommend · segmentation ·        │     │
-│  │  cohort · validation · report (PDF) · advisor (AI) · workspace  │     │
+│  │  cohort · validation · report · advisor · workspace · imports   │     │
 │  │  — pure TypeScript functions, fully unit-tested, no I/O          │     │
 │  └───────────┬─────────────────────────────────┬───────────────────┘     │
 │              │                                  │                       │
@@ -231,11 +234,11 @@ the database queries are **cached** (explained in
   ┌─────────────────────────┐        ┌─────────────────────────────┐
   │  Neon Postgres           │        │  Ollama (optional, local)    │
   │  (serverless HTTP driver)│        │  http://localhost:11434      │
-  │  - operations_* tables   │        │  - Local LLM for AI Advisor  │
-  │  - market_*, product_*   │        │  - NOT reachable in prod →   │
-  │    tables (schema only;  │        │    deterministic fallback    │
-  │    unused at runtime)    │        │    kicks in automatically    │
-  │  - workspace_files table │        └─────────────────────────────┘
+  │  every row scoped by     │        │  - Local LLM for AI Advisor  │
+  │  workspace_id:           │        │  - NOT reachable in prod →   │
+  │  operations_* · market_* │        │    deterministic fallback    │
+  │  product_* · files ·     │        │    kicks in automatically    │
+  │  data_imports (ledger)   │        └─────────────────────────────┘
   └─────────────────────────┘
 ```
 
@@ -273,7 +276,7 @@ domain X.
 - **AI:** Ollama, a *local* LLM runtime. In production (Vercel), Ollama is
   unreachable (Vercel has no `localhost:11434`), so the app **always**
   degrades gracefully to a deterministic, rule-based answer engine. This is
-  intentional, not a bug — see [§12](#12-authentication-and-why-there-isnt-any)-adjacent
+  intentional, not a bug — see [§12](#12-identity-private-workspaces-instead-of-accounts)-adjacent
   discussion in [§6.1](#61-the-advisor-pattern-shared-across-all-three-domains).
 - **CI:** GitHub Actions — lints, type-checks, tests, and builds the app on
   every push to `main` (see [§19](#19-deployment--cicd)).
@@ -888,7 +891,7 @@ always. Covered in detail with the full request flow in
 
 **Purpose:** all format detection, size validation, and file *parsing* logic
 for the shared Data Manager upload feature (covered fully in
-[§8](#8-the-data-workspace-upload-feature--deep-dive)).
+[§8](#8-bring-your-own-data--workspaces-imports-and-undo)).
 
 ### 5.11 `src/core/registry.ts` — The Domain Registry
 
@@ -1072,11 +1075,19 @@ confidence down, which pulls its priority score down (`impact × confidence`).
 | `pricing.ts` | A constant-elasticity price simulator: `newDemand = baseDemand × (newPrice/basePrice)^elasticity` |
 | `rootcause.ts` | Decomposes a revenue change into per-category contributions, ranked by absolute dollar change |
 | `assumptions.ts` | The single source of truth for **derived, non-measured** assumptions (product category inferred from description text; a cost-as-fraction-of-price ratio per category) — deliberately isolated so every place that uses an assumption is traceable to one file, and every UI surface that shows a number built on it is labeled "≈ est" |
-| `ingest.ts` | Maps arbitrary uploaded spreadsheet columns onto the fixed database schema (full walkthrough in [§8](#8-the-data-workspace-upload-feature--deep-dive)) |
+| `ingest.ts` | Maps arbitrary uploaded spreadsheet columns onto the fixed database schema (full walkthrough in [§8](#8-bring-your-own-data--workspaces-imports-and-undo)) |
 | `advisor.ts` | The Operations-specific AI persona, context builder, and deterministic intent rules |
 | `config.ts` | Branding metadata *and* a long code comment documenting the exact, reproducible "honest numbers" for this domain (real dataset row counts, measured forecast R²/MAPE, the returns rate) |
 
 ### 6.5 Market domain — what's different
+
+> **Two data sources.** Market renders either the sample described below or the
+> visitor's own *market indicators* and *competitor shares*
+> (`src/domains/market/dataset.ts`, `model.ts`, [§8.6](#86-how-each-module-reads-uploaded-data)).
+> The sample is now generated through the same `model.ts` scoring used for
+> uploads, and was verified to produce byte-identical scores, decisions,
+> opportunities, risk profiles, entry strategies and scenarios after the
+> refactor.
 
 **Data source:** entirely **synthetic and in-memory** — no database calls at
 all. `src/domains/market/generator.ts` hardcodes a table of 121 real-world
@@ -1104,6 +1115,12 @@ client-side (no network request per slider move — the whole computation is a
 synchronous function call inside a `useMemo`).
 
 ### 6.6 Product domain — what's different
+
+> **Two data sources.** Product renders either the sample described below or the
+> visitor's own events, experiment results and backlog
+> (`src/domains/product/dataset.ts`, [§8.6](#86-how-each-module-reads-uploaded-data)).
+> Imported events are aggregated in SQL; in testing, events derived from the
+> sample users reproduced the sample's D1/D7/D30 retention exactly.
 
 **Also entirely synthetic and in-memory**, but with one important nuance:
 while the *underlying users are synthetic*, the retention/funnel/experiment
@@ -1227,155 +1244,177 @@ genuinely doesn't match anything).
 
 ---
 
-## 8. The Data Workspace (Upload Feature) — Deep Dive
+## 8. Bring Your Own Data — Workspaces, Imports and Undo
 
-This is the most feature-rich single subsystem in the app and deserves its own
-section. It lets a user drag-and-drop files that become available across all
-three modules, and — uniquely for CSV/XLSX/JSON files describing order lines —
-lets a user load their own data straight into the real Operations analytics
-with one click.
+This is the subsystem that turns CoreSight IQ from a demo into a tool: any
+visitor can upload their own CSV, Excel or JSON files and see every module
+recompute on their numbers, privately, with nothing to install and no account.
 
-### 8.1 The data model
+### 8.1 The model in one picture
 
-One database table, `workspace_files` (defined in `src/db/schema.ts`), stores
-everything: the file's display name, its original filename, detected format,
-size, a `scope` (`'shared'` visible everywhere, or `'operations'`/`'market'`/
-`'product'` visible to just one module), a `status` (`'ready'` or `'error'`),
-parsed metadata (`columns`, `rowCount`, a `sampleRows` preview, or a
-`textPreview` for plain-text files), and — critically — the **raw file bytes,
-stored as base64-encoded text** (`rawBase64`).
+```text
+browser ──cookie csiq_ws (random 256-bit token, httpOnly)──▶ proxy.ts
+                                                               │ issues it on first visit
+server: workspace_id = uuid(sha256(token))  ◀──────────────────┘
+        (the token itself is never stored)
 
-**Why base64 text instead of a native binary column?** A code comment in
-`schema.ts` explains: the Neon serverless driver used by this project (`neon-
-http`) ships query parameters as JSON, and JSON has no binary type — so a real
-Postgres `bytea` column would require extra encode/decode plumbing to work
-with this particular driver. Storing base64 text sidesteps that entirely at
-the (small, files are capped at 4 MB) cost of ~33% larger storage. This is
-explicitly a trade-off made for driver compatibility, not a "best practice" —
-a good example of a decision an interviewer might probe.
+upload ─▶ workspace_files (raw bytes base64, sha256 content hash)
+            │  Import (kind + column mapping)
+            ▼
+        core/imports: map → parse → validate → issues (dry run shown first)
+            │  commit
+            ▼
+        data_imports (ledger: pending → committed → undone)
+            │  one transaction
+            ▼
+        fact tables, every row tagged (workspace_id, import_id[, row_key])
+          operations_invoice_lines (+ shared customers/products/invoices)
+          market_indicators · market_competitors
+          product_tracked_events · product_experiment_stats · product_backlog_items
+            │
+            ▼
+        resolveDataSource(domain) ─▶ "workspace" | "demo" | "empty"
+            ▼
+        module pages read their dataset provider (data.ts / dataset.ts)
+```
 
-### 8.2 The parsing core (`src/core/workspace/index.ts`)
+### 8.2 Private workspaces (`src/proxy.ts`, `src/server/workspace.ts`)
 
-Format handling is **honest about what actually happens to each file type** —
-this is stated directly in the UI, not buried:
+- **Identity without accounts.** On a visitor's first request, the proxy
+  (Next 16's renamed middleware) generates 32 random bytes, stores them
+  base64url-encoded in the `csiq_ws` cookie (`HttpOnly`, `Secure` in
+  production, `SameSite=Lax`, ~400 days), and also writes the cookie onto the
+  incoming request so the very first render already has a workspace.
+- **The database never sees the token.** `workspaceIdFromToken()` hashes it
+  with SHA-256 and formats the digest as a UUID. A database leak therefore
+  cannot be replayed as a cookie.
+- **Demo workspace.** A reserved id (`DEMO_WORKSPACE_ID`, `src/db/ids.ts`)
+  holds the CLI-loaded UCI sample. It is read-only through the app: every
+  mutating service function refuses it.
+- **Recovery link.** `POST /api/workspace/link` returns `…/w#<token>`. The
+  fragment is never sent to servers, so it can't end up in access logs. The
+  `/w` page reads it client-side and `POST`s it to `/api/workspace/claim`,
+  which sets the cookie.
+- **Erase.** `DELETE /api/workspace` deletes every file, import and fact row in
+  one transaction, then expires the cookie so the next request starts fresh.
 
-| Format | What happens |
-|---|---|
-| CSV | Parsed via **PapaParse** into columns + rows; previewable; can be ingested into Operations |
-| XLSX | Parsed via the **`xlsx` (SheetJS)** library — first sheet only — into columns + rows; previewable; ingestible |
-| JSON | Must be a top-level array of objects; parsed into a column/row shape by unioning all keys across objects |
-| TXT | Stored with the **first 2,000 characters** as a preview string — no tabular processing |
-| PDF, DOCX | Stored as a reference document only — **not parsed at all** |
+### 8.3 Choosing what a module shows (`resolveDataSource`)
 
-`parseBuffer()` never throws — every branch, including malformed input,
-returns a `{ error: string }` value instead of an exception, so the calling
-API route never needs a defensive try/catch around parsing specifically (it
-still wraps the whole handler for database errors).
+Each module has a mode stored in the `csiq_mode` cookie: `auto` (default),
+`demo`, or `yours`. `core/tenancy.resolveSource` turns mode + "does this
+workspace have live imports for this module?" into one of:
 
-`validateUpload()` runs *before* any parsing: checks the file extension is
-recognized, the file isn't empty, and it's under the 4 MB cap (chosen because
-it sits safely under Vercel's request body size limit).
-
-**Defences for untrusted input** (the upload API is unauthenticated):
-
-| Limit | Value | Why |
+| mode | has own data | shows |
 |---|---|---|
-| `MAX_FILE_BYTES` | 4 MB | Under Vercel's request cap |
-| `MAX_PARSE_ROWS` | 100,000 | A 4 MB `.xlsx` is a ZIP that can expand to millions of cells |
-| Excel read options | `sheets: 0`, `sheetRows: cap + 2`, no formulas/HTML/styles | Decode only what's used; stop expanding as soon as the cap is passed |
-| `MAX_WORKSPACE_FILES` / `MAX_WORKSPACE_BYTES` | 200 files / 100 MB | Bounds total storage so repeated uploads can't fill the free-tier database (`quotaError`, HTTP `413`) |
-| `MAX_NAME_LENGTH` | 200 chars | Shared by upload and rename |
+| auto | yes | **workspace** |
+| auto | no | **demo** (sample) |
+| demo | either | **demo** |
+| yours | yes | **workspace** |
+| yours | no | **empty** (empty state listing the import types + templates) |
 
-SheetJS is installed from the vendor's patched release (`xlsx` 0.20.3 tarball
-from `cdn.sheetjs.com`, Apache-2.0, sha512 pinned in the lockfile). The npm
-registry copy stopped at 0.18.5, which carries prototype-pollution and ReDoS
-advisories — relevant precisely because this code parses files from strangers.
+The statusline under the masthead (`DatasetStatus`) prints the result and holds
+the *Sample / Your data* switch (`ModeButton` → `POST /api/workspace/mode` →
+`router.refresh()`).
 
-### 8.3 The five API routes
+### 8.4 The import engine (`src/core/imports`)
 
-| Method & route | Purpose |
-|---|---|
-| `POST /api/data/upload` | Accepts one multipart file + a `scope`; validates, parses, stores it; returns `201` with the new file's metadata |
-| `GET /api/data/files` | Lists all files (optionally filtered by `?scope=`), newest first |
-| `GET/PATCH/DELETE /api/data/files/[id]` | Fetch one file's metadata; rename and/or re-scope it; or delete it |
-| `POST /api/data/files/[id]/reprocess` | Re-parses the *already-stored* bytes (e.g., after a parser bug fix); if a new file is attached in the request body, this doubles as **Replace** |
-| `POST /api/data/files/[id]/ingest-operations` | The one route with real side effects on the live analytics — see below |
+Pure, client-safe TypeScript, unit-tested in `src/core/imports/index.test.ts`.
 
-### 8.4 The ingest pipeline — the most complex single request in the app
+- **Import kinds** (`src/domains/import-kinds.ts`) declare fields: key, label,
+  type (`string | number | integer | date`), required, header aliases, ranges,
+  max length. Six kinds exist — see the table in the README.
+- **`autoMap(columns, fields)`** matches normalized headers
+  (`"Order Date"` → `orderdate`) against aliases; one column per field.
+- **`suggestKind(columns, kinds)`** picks the kind whose required fields all
+  map, preferring the best overall fit.
+- **`validateRows(rows, kind, mapping)`** parses every value:
+  - numbers accept `1,234.5`, `$1,200`, `12%`, `(45)`; anything else is
+    rejected, never coerced;
+  - dates accept real Date cells and ISO/common strings, reject bare serial
+    numbers (ambiguous) and implausible years;
+  - a bad **required** value skips the row; a bad **optional** value is stored
+    as null. Every rejection is reported with its row number (first 50 kept,
+    total counted).
+- **`occurrenceKeys(tuples)`** (`keys.ts`, server-only) produces the
+  de-duplication key `sha256(fields ‖ occurrence index)`. Overlapping exports
+  produce identical keys (skipped by a unique index), while a genuinely
+  repeated row inside one file gets a different index and is kept.
 
-`POST /api/data/files/[id]/ingest-operations` is a genuine multi-step
-pipeline with several deliberate guard rails:
+### 8.5 The import service (`src/server/imports.ts`)
 
-1. **Look up the file**; 404 if it doesn't exist.
-2. **Guard: must be tabular** (not PDF/DOCX/TXT) — return a `400` with a
-   specific error message otherwise.
-3. **Guard: must be in `'ready'` status** — a file that failed to parse can't
-   be ingested until fixed.
-4. **Guard: must not already be ingested** — `file.ingestedAt` is checked; if
-   set, ingesting again would silently double every downstream metric (every
-   row would be inserted twice). The API refuses and tells the user to
-   replace the file instead.
-5. **Re-parse the stored bytes** (not the original `sampleRows` preview,
-   which is capped at 100 rows — the full parse gets every row).
-6. **Guard: row count ≤ `INGEST_ROW_LIMIT` (25,000)** — bigger loads are
-   directed to the CLI ETL script instead, which has no such limit and is
-   designed for the full ~1M-row dataset.
-7. **Column mapping** (`mapColumns`, in `src/domains/operations/ingest.ts`):
-   a **heuristic alias table** maps arbitrary header names (case- and
-   punctuation-insensitive) onto the five required fields (invoice number,
-   stock code, quantity, unit price, date) plus three optional ones
-   (description, customer ID, country). If any required field can't be
-   mapped, the route returns a `400` listing exactly which fields are
-   missing and which headers *were* found, so the user can rename a column
-   and retry.
-8. **`buildRecords()`** walks every row, validating each one individually
-   (non-numeric quantity/price, unparseable date, or a blank key → the row is
-   *skipped*, not the whole upload rejected) and normalizes the surviving
-   rows into four separate record sets matching the four Postgres tables
-   (`customers`, `products`, `invoices`, `lines`) — building `Map`s keyed by
-   natural ID so duplicate invoice/customer/product rows across many lines
-   collapse into one record each, with `firstSeen`/`lastSeen` widened
-   appropriately.
-9. **Atomically claim the file** — `UPDATE workspace_files SET ingested_at =
-   now() WHERE id = $1 AND ingested_at IS NULL RETURNING id`. Guard #4 alone is
-   a check-then-act race (two concurrent requests could both pass it); only one
-   request can win this update, and the loser gets `409`.
-10. **Insert everything in one transaction** — rows are split into chunks of
-    1,000 (Postgres caps parameters per statement), and every chunk plus the
-    ETL-log row go through a single `db.batch([...])`. The Neon HTTP driver has
-    no interactive transactions, but `batch()` is sent as one non-interactive
-    transaction, so a failure leaves **no partial rows**.
-11. **Release the claim on failure** — if the batch throws, `ingested_at` is
-    reset to `NULL` so the user can retry without double-counting.
-12. **`revalidateTag('operations', 'max')`** — invalidates the 1-hour data
-    cache from [§6.1](#61-the-advisor-pattern-shared-across-all-three-domains)
-    immediately, so the very next page load of the Decision Center reflects
-    the newly ingested rows instead of waiting up to an hour.
-13. **Return a summary** — how many lines/invoices/customers/products were
-    inserted and how many rows were skipped, which the UI surfaces as a
-    success notice.
+`previewImport` (dry run) and `commitImport` share `prepare()`: load the file
+(scoped to the workspace), re-parse its bytes, sanitize the client's mapping,
+validate. Then each kind's **plan** describes how to write it:
 
-### 8.5 `DataManager.tsx` — the client-side experience
+| kind | target table(s) | dedup identity |
+|---|---|---|
+| `operations.order_lines` | invoice_lines (+ products, customers, invoices with `ON CONFLICT DO NOTHING`) | `(workspace_id, row_key)` |
+| `market.markets` | market_indicators | `(workspace_id, market_key)` (normalized name) |
+| `market.competitors` | market_competitors | `(workspace_id, market_key, competitor)` |
+| `product.events` | product_tracked_events | `(workspace_id, row_key)` |
+| `product.experiments` | product_experiment_stats | `(workspace_id, experiment, variant)` |
+| `product.backlog` | product_backlog_items | `(workspace_id, name_key)` |
 
-A **Client Component** (`'use client'`) because it needs `useState` and DOM
-event handlers (drag-and-drop, file pickers), which cannot run inside a Server
-Component. Key implementation details:
+**Commit sequence**
 
-- **Real upload progress**, not a fake spinner. `fetch()` has no native
-  upload-progress event, so the component uses `XMLHttpRequest` directly
-  (`uploadWithProgress`) specifically to listen to `xhr.upload.onprogress` and
-  update a percentage in React state as bytes actually leave the browser.
-- **Multiple files upload sequentially** (a `for...of` loop with `await`
-  inside), not in parallel — this keeps the per-file progress bars accurate
-  and avoids overwhelming the serverless function with concurrent large
-  uploads.
-- **Drag-and-drop** is implemented with native HTML5 drag events
-  (`onDragOver`, `onDragLeave`, `onDrop`) plus `role="button"` and a
-  `onKeyDown` handler so the same dropzone is fully keyboard-accessible
-  (Enter/Space triggers the file picker) — not just a mouse-only drag target.
-- **A preview modal** renders either a data table (first 25 of up to 100
-  cached sample rows) or a plain-text preview or an "unparseable" message,
-  depending on what the file actually is.
+1. Capacity: per-workspace row cap for the kind, and the deployment-wide cap.
+2. **Claim**: insert a `pending` ledger row. A partial unique index on
+   `(workspace_id, kind, content_hash) WHERE status IN ('pending','committed')`
+   lets only one live import of identical content exist, so a double-click or
+   retry gets `409`. Stale `pending` rows older than 15 minutes are cleared and
+   the claim retried once.
+3. **One transaction** (`atomic()` in `src/db/index.ts`): all chunked inserts
+   (1,000 rows per statement) with `ON CONFLICT DO NOTHING`, then the ledger
+   update to `committed` with `rows_inserted` computed **inside** the
+   transaction from the fact table itself.
+4. On any failure, the pending claim is deleted; the transaction has already
+   rolled back every row.
+5. `revalidateTag('ws:<id>', { expire: 0 })` so the next page view recomputes.
+   (`'max'` would serve stale data once — wrong right after an import.)
+
+**Undo** deletes the import's fact rows by `import_id`, then, for Operations
+only, deletes customers/products/invoices that no remaining line references
+(they are shared across imports), and flips the ledger to `undone`, all in one
+transaction. Undoing twice returns `409`.
+
+### 8.6 How each module reads uploaded data
+
+- **Operations** (`data.ts`): every query filters `workspace_id = $ws` and joins
+  on `(workspace_id, key)`. Results are cached per workspace for an hour under
+  the tag `ws:<id>`. Money from uploads is shown without a currency symbol.
+- **Market** (`dataset.ts` + `model.ts`): indicator rows become `Market`
+  objects; scores are `wsum` weighted means over the indicators present (weights
+  renormalized; complete rows reproduce the sample formula exactly; verified
+  120/120 in testing). Competitor shares give real HHI (Σ share²) and
+  saturation (Σ shares). Models needing a specific input return nothing instead
+  of guessing (scenario revenue needs GDP).
+- **Product** (`dataset.ts`): event analytics are aggregated **in Postgres** so
+  only summaries leave the database: censoring-aware retention brackets per
+  cohort, users per event, `ntile(5)` engagement tiers, and an ordered funnel
+  built from chained CTEs (step *k* counts users who did it after step *k−1*).
+  The funnel steps are chosen in a plain `<form method="get">` on the
+  Analytics page (`?step=a&step=b…`). Experiments pair each treatment with its
+  control and run `core/stats.calculateABTest`; the backlog feeds RICE/ICE,
+  plus WSJF only when every initiative has its three inputs.
+
+### 8.7 Limits (why they exist)
+
+| limit | value | reason |
+|---|---|---|
+| file size | 4 MB | under Vercel's request body cap |
+| parsed rows | 100,000 | a 4 MB XLSX is a ZIP that can expand enormously |
+| rows per import | 25,000 | keeps one transaction inside a serverless time limit |
+| uploads per workspace | 50 files / 25 MB | fairness between visitors |
+| live rows per workspace | 250k order lines or events; smaller for the rest | fairness |
+| deployment-wide | 60 MB uploads, 1M imported rows | stay inside Neon's free 512 MB |
+
+### 8.8 The Data Manager UI (`src/app/data`)
+
+`DataManager.tsx` (uploads with real XHR progress, file table), `ImportDialog.tsx`
+(kind select with suggestion, mapping table, live dry-run report with counts,
+issue list and a sample of parsed rows, commit, then a "View insights" link),
+`ImportHistory.tsx` (every import with counts and **Undo**), and
+`WorkspacePanel.tsx` (recovery link, delete-all).
 
 ---
 
@@ -1437,65 +1476,73 @@ perfectly with **zero database configuration**, and Operations degrades
 gracefully to its "no data" empty state rather than crashing the whole app at
 startup.
 
-### 10.2 Schema management: push-based, not migration-based
+### 10.2 Schema management: versioned SQL migrations
 
-There is **no `/drizzle` migrations folder** committed to this repository.
-Schema changes are applied with `npx drizzle-kit push`, which directly
-diffs the TypeScript schema against the live database and applies the
-difference — no versioned `.sql` migration files are generated or tracked.
-This is a deliberate trade-off appropriate for a single-developer project at
-this stage: faster iteration, at the cost of no audit trail of schema history
-and no safe rollback path (a production team with multiple contributors would
-typically switch to `drizzle-kit generate` + tracked migrations).
+Schema changes ship as reviewed SQL in `db/migrations/NNNN_name.up.sql` with a
+matching `.down.sql`, applied by `scripts/db-migrate.ts` (`npm run db:migrate`,
+`db:status`, `--down <version>`). Each file runs in **one transaction** with
+`lock_timeout` and `statement_timeout`, and is recorded in `schema_migrations`.
+node-postgres is used for migrations even on Neon, because the HTTP driver
+can't run multi-statement DDL transactions.
+
+`src/db/schema.ts` mirrors the SQL for Drizzle's typed query builder. Columns,
+types, nullability, keys and indexes were verified identical by generating DDL
+from `schema.ts` into an empty database and diffing it against a migrated copy
+of production. `CHECK` constraints and some FK names live only in SQL, which is
+why `drizzle-kit push` is no longer used (it would drop them).
+
+**Migration 0001 (workspaces & imports)** was rehearsed on a full restore of
+production (1,067,371 lines): up in 2.3 s, down restoring the original schema
+object-for-object (288 objects diffed), up again. Techniques worth knowing:
+
+- `ADD COLUMN … NOT NULL DEFAULT <constant>` is metadata-only in Postgres ≥ 11:
+  the 1M-row table is not rewritten; `DROP DEFAULT` afterwards keeps existing
+  rows' value.
+- The FK from lines to the import ledger is added `NOT VALID`, then
+  `VALIDATE CONSTRAINT` (a lighter lock than validating while adding).
+- A guard `DO` block refuses to drop the legacy demo tables unless they are
+  empty.
 
 ### 10.3 Every table, and why it exists
 
-**Operations tables** (four transactional + one log table):
-
-| Table | Primary key | Purpose |
+| table | key / notable constraints | purpose |
 |---|---|---|
-| `operations_customers` | `customer_id` (natural key from the source data) | One row per customer; `first_seen`/`last_seen` for lifetime span |
-| `operations_products` | `stock_code` (natural key) | One row per SKU; carries the **derived, labeled** `category` and `assumed_cost_ratio` columns |
-| `operations_invoices` | `invoice` (natural key) | One row per order; `is_return` flags credit-note / negative-quantity orders |
-| `operations_invoice_lines` | `id` (random UUID) | One row per line item — the fact table everything else aggregates from; indexed on `invoice`, `stock_code`, and `invoice_date` for the query patterns in `data.ts` |
-| `operations_etl_logs` | `id` (random UUID) | An audit trail of every bulk load — source, total/inserted/skipped row counts, freeform notes |
+| `workspace_files` | `workspace_id`, `content_hash` | uploaded files (raw base64 + parsed preview) |
+| `data_imports` | partial unique `(workspace_id, kind, content_hash)` for live rows; CHECKs on domain/status | the import ledger: counts, mapping, issues, status, timestamps |
+| `operations_invoice_lines` | `workspace_id`, `import_id` FK, partial unique `(workspace_id, row_key)` | fact table for all Operations analytics |
+| `operations_invoices` / `_customers` / `_products` | PK `(workspace_id, natural key)` | dimensions shared across a workspace's imports |
+| `market_indicators` | unique `(workspace_id, market_key)`; range CHECKs on every metric | uploaded market indicators |
+| `market_competitors` | unique `(workspace_id, market_key, competitor)`; share CHECK | uploaded competitor shares |
+| `product_tracked_events` | unique `(workspace_id, row_key)`; index `(workspace_id, user_key, occurred_at)` | raw event log |
+| `product_experiment_stats` | unique `(workspace_id, experiment, variant)`; `conversions ≤ users` CHECK | aggregated A/B results |
+| `product_backlog_items` | unique `(workspace_id, name_key)`; `effort > 0`, `0 ≤ confidence ≤ 1` | backlog for RICE/ICE/WSJF |
+| `operations_etl_logs` | — | legacy audit of the original CLI load (superseded by `data_imports`) |
+| `schema_migrations` | PK `version` | applied migrations |
 
-**Market and Product tables** (`market_markets`, `market_competitive`,
-`market_opportunities`, `market_scenarios`, `product_users`, `product_events`,
-`product_features`, `product_experiments`, `product_experiment_results`,
-`product_opportunities`, `product_initiatives`, `product_roadmap_items`,
-`product_goals`): these tables **exist in the schema but are not queried by
-the running application** — Market and Product currently compute everything
-in-memory from the synthetic generators. They are a preserved artifact of the
-original architecture (an earlier phase persisted synthetic data to Postgres)
-and represent a natural next step if either domain moves to storing real,
-user-uploaded data the way Operations now does.
-
-**Workspace table:** `workspace_files` (documented fully in
-[§8.1](#81-the-data-model)).
+The 13 empty `market_*`/`product_*` tables from the original phase were dropped
+by migration 0001 (their DDL is preserved verbatim in the down migration).
+Neon's own `neon_auth` schema is untouched.
 
 ### 10.4 Relationships, indexes, and why
 
-There are **no foreign-key relationships between domain schemas** — an
-explicit design choice stated in a `schema.ts` comment ("No cross-domain
-foreign keys"), because the three domains are meant to be independently
-addable/removable modules, not a tightly coupled relational graph. Within
-Operations, `product_events.user_id` and the product-domain tables *do* use
-Postgres foreign keys (`.references(() => productUsers.id)`) since those
-tables model one coherent relational dataset (even though unused at runtime
-today).
+- Every fact table's `import_id` references `data_imports(id)`. Undo deletes by
+  `import_id` (indexed); the ledger row is kept as history.
+- Every user-data index leads with `workspace_id`, because every query filters
+  on it: `(workspace_id, invoice_date)` for time series,
+  `(workspace_id, invoice)`/`(workspace_id, stock_code)` for joins.
+- Operations dimensions use composite primary keys `(workspace_id, natural
+  key)`, so two visitors can both have an invoice "536365" without colliding.
 
-Indexes are placed exactly on the columns the real query patterns in
-`data.ts` filter/group/join by: `operations_invoice_lines` is indexed on
-`invoice`, `stock_code`, and `invoice_date` because every aggregate query
-either joins on the first two or filters/groups by date range on the third.
+### 10.5 CRUD, illustrated with an import's lifecycle
 
-### 10.5 CRUD, illustrated with the workspace-file lifecycle
-
-- **Create:** `POST /api/data/upload` → `db.insert(workspaceFiles).values({...}).returning()`.
-- **Read:** `GET /api/data/files` (list, optionally filtered) and `GET /api/data/files/[id]` (one row).
-- **Update:** `PATCH /api/data/files/[id]` (rename/re-scope) and the reprocess/ingest routes (both update parsed metadata or the `ingestedAt` timestamp).
-- **Delete:** `DELETE /api/data/files/[id]` → `db.delete(workspaceFiles).where(eq(workspaceFiles.id, id)).returning({ id: ... })` — returning the deleted row's id lets the route distinguish "deleted successfully" from "nothing matched that id" (404) using one round trip.
+- **Create:** `POST /api/data/upload` inserts a file; `POST
+  /api/data/files/[id]/import` claims a ledger row then inserts facts in one
+  transaction.
+- **Read:** module pages call their dataset provider, filtered by workspace.
+- **Update:** the ledger flips `pending → committed → undone`; files can be
+  renamed, re-scoped, re-parsed or replaced.
+- **Delete:** undo deletes an import's facts (plus orphaned dimensions);
+  `DELETE /api/workspace` erases everything for a workspace.
 
 ### 10.6 Drizzle ORM — what it is and why
 
@@ -1519,132 +1566,83 @@ observable trade-off if asked about in an interview.
 
 ## 11. Every API Endpoint
 
-All endpoints are Next.js **Route Handlers** — files named exactly
-`route.ts` inside `src/app/api/**`, each exporting functions named after HTTP
-methods (`GET`, `POST`, `PATCH`, `DELETE`). There is no separate Express
-server; Next.js *is* the backend here.
+All routes are Next.js Route Handlers. Every data route resolves the caller's
+workspace from the cookie (`requireWorkspace` → `401` if absent) and scopes
+every query to it; another workspace's ids behave as `404`. State-changing
+requests must carry an `Origin` matching the host (`403` otherwise, enforced in
+`src/proxy.ts`). Database failures return a generic `503`; details are logged.
 
-### `POST /api/data/upload`
+| Method & route | Purpose | Notable responses |
+|---|---|---|
+| `POST /api/data/upload` | multipart `file` (+ `scope`) → stored, parsed, hashed | `201`, `400` invalid, `413` quota |
+| `GET /api/data/files[?scope=]` | the workspace's files | `200` |
+| `GET/PATCH/DELETE /api/data/files/[id]` | detail / rename & re-scope / delete | `404` for others' ids |
+| `POST /api/data/files/[id]/reprocess` | re-parse, or replace with multipart `file` | `413` quota on replace |
+| `POST /api/data/files/[id]/import` | `{ kind, mapping?, dryRun? }` → preview or commit | `200` preview, `201` committed, `409` already imported, `413` cap, `507` deployment full |
+| `GET /api/data/imports` | import history (live + undone) | `200` |
+| `POST /api/data/imports/[id]/undo` | remove exactly that import's rows | `200`, `409` already undone |
+| `POST /api/workspace/mode` | `{ domain, mode: auto/demo/yours }` | sets `csiq_mode` |
+| `POST /api/workspace/link` | recovery link (`/w#token`) | `no-store` |
+| `POST /api/workspace/claim` | `{ token }` → adopt a workspace | sets `csiq_ws` |
+| `DELETE /api/workspace` | erase the workspace, retire its cookie | `200` |
+| `GET /api/operations/health` | sample-data row counts + latency | `200` / `503` |
+| `POST /api/{operations,market,product}/advisor` | `{ question }` → grounded answer for the data being viewed | `400` invalid question |
 
-| | |
-|---|---|
-| **Request** | `multipart/form-data`: `file` (required), `scope` (optional, default `'shared'`) |
-| **Validation** | Format allow-list + 4 MB size cap (`validateUpload`); scope must be one of `shared`/`operations`/`market`/`product` |
-| **Processing** | Parses the file (if tabular/text), base64-encodes the raw bytes, inserts one `workspace_files` row |
-| **Success response** | `201 { file: WorkspaceFileDto }` |
-| **Errors** | `400` bad field/format/size/scope; `413` workspace quota exceeded; `503` if the database fails (generic message — details are logged server-side, never returned) |
-| **Files involved** | `route.ts` → `core/workspace` (validate + parse) → `db/schema.ts` (insert) → `api/data/_lib.ts` (`toDto`, response helpers) |
+**Example — dry run**
 
-### `GET /api/data/files`
-
-Lists workspace files, optional `?scope=` filter, newest first. `200 { files:
-WorkspaceFileDto[] }`. Uses `export const dynamic = 'force-dynamic'` to
-guarantee it's never served from Next.js's route cache — the file list must
-always reflect the current database state.
-
-### `GET / PATCH / DELETE /api/data/files/[id]`
-
-Standard single-resource CRUD. All three validate the `id` path parameter is
-a well-formed UUID *before* querying (a regex check, `/^[0-9a-f-]{36}$/i`) —
-cheap enough to reject a malformed ID with a `404` without ever touching the
-database.
-
-### `POST /api/data/files/[id]/reprocess`
-
-No body → re-parses stored bytes. Multipart body with a new `file` → replaces
-the stored bytes and re-parses (this is how the UI implements "Replace").
-**Only Replace resets `ingestedAt`.** Re-parsing identical bytes keeps the flag
-— otherwise Reprocess → Ingest would load the same rows twice (an earlier
-version had exactly this bug). Replace is also checked against the workspace
-byte quota using the size delta (`413` if exceeded).
-
-### `POST /api/data/files/[id]/ingest-operations`
-
-Fully documented in [§8.4](#84-the-ingest-pipeline--the-most-complex-single-request-in-the-app).
-Example success response:
 ```json
-{ "ingested": { "lines": 1067371, "invoices": 53628, "customers": 5942, "products": 5304, "skipped": 25793 } }
+POST /api/data/files/9d50…/import
+{ "kind": "operations.order_lines", "dryRun": true }
+
+200 { "preview": { "rowsTotal": 4973, "valid": 4973, "skipped": 0,
+  "inFileDuplicates": 0, "existingDuplicates": 3617, "toInsert": 1356,
+  "summary": { "Date range": "2011-06-01 → 2011-12-09", "Orders": 309 }, … } }
 ```
-Example error response (missing required column):
+
+**Example — commit, then the same file again**
+
 ```json
-{ "error": "Missing required column(s): quantity. Found: Order ID, SKU, Price, Date. Headers like \"Invoice/Order ID\", ... are auto-detected." }
+201 { "import": { "importId": "e66d…", "domain": "operations",
+                  "inserted": 1356, "duplicates": 3617, "skipped": 0 } }
+409 { "error": "This file has already been imported as this data type …" }
 ```
 
-### `GET /api/operations/health`
+## 12. Identity: Private Workspaces Instead of Accounts
 
-A read-only diagnostic endpoint — no request body. Runs one lightweight
-`COUNT(*)` query across the four Operations tables and returns
-`{ status: 'ok' | 'empty' | 'error', counts, latencyMs }`, `200` if data is
-present, `503` otherwise. Explicitly `force-dynamic` and uncached, because its
-entire purpose is to report the *live* state of the deployed database — e.g.
-to answer "is production actually connected to a seeded database right now?"
-without going through the app's own 1-hour analytics cache.
+There is still **no login, password, OAuth or user table**. Instead, each
+browser is given an anonymous private workspace (see
+[§8.2](#82-private-workspaces-srcproxyts-srcserverworkspacets)). This is a
+*capability* model: possession of the secret cookie (or the recovery link) is
+what grants access.
 
-### `POST /api/operations/advisor`, `/api/market/advisor`, `/api/product/advisor`
+**Why this instead of real accounts:** the goal was "anyone can bring their own
+data and get insights" at $0, without a third-party auth provider. Workspaces
+give real isolation between visitors with none of the account plumbing
+(passwords, resets, email delivery).
 
-All three share one shape and one underlying orchestrator
-(`core/advisor.answer`); full request/response trace is in
-[§16.3](#163-trace-asking-the-ai-advisor-a-question).
+**Trade-offs, stated plainly**
 
-| | |
-|---|---|
-| **Request** | `{ "question": string }` |
-| **Validation** | `sanitizeQuestion` — must be a non-empty string, max 500 characters |
-| **Processing** | Builds a fresh domain snapshot, tries the local Ollama model grounded in that snapshot, falls back to a deterministic keyword-matched answer if Ollama is unreachable or times out |
-| **Success response** | `200 { text: string, source: 'ollama' | 'deterministic' }` |
-| **Errors** | `400` if the question is missing/empty/too long |
-| **Example request** | `{"question": "How is our retention?"}` |
-| **Example response** | `{"text": "Measured retention: D1 65.8%, D7 57.9%, D30 35.6%, D90 10.2%...", "source": "deterministic"}` |
+- Lose the cookie without a saved recovery link → the workspace is
+  unreachable.
+- Anyone holding the recovery link has full access (the UI warns about this).
+- No sharing between people with different permissions; no audit of *who*
+  did something, only *what* was done (the import ledger).
 
----
-
-## 12. Authentication (and Why There Isn't Any)
-
-**This is documented honestly rather than glossed over, because the
-instructions for this document require explaining only what actually
-exists.**
-
-There is **no login, no signup, no sessions, no JWTs, no cookies, no OAuth, no
-protected routes, and no role checking anywhere in this codebase.** This is a
-deliberate, stated project decision, written directly into a code comment at
-the top of the database schema:
-
-```ts
-// src/db/schema.ts
-/**
- * ...
- * Auth is intentionally omitted — the platform ships open (per project decision).
- */
-```
-
-**Why:** this is a portfolio / demo product. Every page, every API route, and
-every dataset is meant to be viewable by anyone who has the URL — there is no
-concept of "my data" vs "someone else's data" to protect. Adding
-authentication with nothing behind it to protect would add real complexity
-(session storage, password hashing, CSRF protection, login UI) for zero actual
-security benefit in this context.
-
-**If authentication were required, how would it plug into this
-architecture?** This is a fair and common interview follow-up, and the honest
-answer given this codebase's structure:
-1. Add a `users` table to `src/db/schema.ts` and a session/JWT mechanism
-   (e.g., NextAuth.js, or a hand-rolled signed httpOnly cookie).
-2. Add **Next.js Middleware** (`src/middleware.ts`, a file convention that
-   runs before any route handler or page) to check for a valid session cookie
-   and redirect unauthenticated requests to a login page.
-3. Scope every query in `src/domains/*/data.ts` (and the workspace-file
-   queries) by the authenticated user's ID, so "shared" data becomes
-   "shared among *this account's* uploads" rather than global.
-4. The `/core` engine itself would need **zero changes** — it is pure,
-   stateless, and has no concept of "who is asking." Authorization is
-   entirely an app/domain-layer concern in this architecture, which is a
-   genuine benefit of keeping `/core` free of I/O.
-
----
+**Adding accounts later** would be additive: an auth provider issues a user id,
+a `workspaces` table maps users to workspace ids (an anonymous workspace can be
+"claimed" on sign-up), and `currentWorkspaceId()` returns that id. Nothing in
+`/core`, the import service or the domain queries changes, because they
+already receive a workspace id.
 
 ## 13. State Management
 
 ### 13.1 The honest inventory
+
+**What lives where (after the workspace change):** the visitor's identity is
+an httpOnly cookie (`csiq_ws`); the per-module data choice is a cookie
+(`csiq_mode`) read on the server; the chosen funnel steps live in the URL
+(`?step=…`) so they're shareable and need no client state. Everything else is
+below.
 
 There is **no global client-side state library** in this project — no Redux,
 no Zustand, no React Query / TanStack Query, no Context-based global store.
@@ -1708,7 +1706,7 @@ library would add more ceremony than it would save.
 | **Next.js 16** | The framework: file-system routing, Server Components, Route Handlers, built-in caching (`unstable_cache`), image/font optimization, and a one-command Vercel deploy story | Everything under `src/app` | A plain Vite + Express SPA | Next.js couples you to its conventions and its (fast-moving) App Router API, but removes the need to hand-build routing, SSR, and an API layer separately |
 | **React 19** | The UI library Next.js is built on — component model, hooks, JSX | Every `.tsx` file | — | — |
 | **TypeScript** | Static types across the whole stack — the database schema, the API contracts, and the UI props are all type-checked together | Every `.ts`/`.tsx` file | Plain JavaScript | Slower to write initially; catches an entire category of bugs (wrong shape passed between layers) before runtime |
-| **Drizzle ORM** | Type-safe schema definitions + query building, direct SQL escape hatch | `src/db/*`, every domain's data-access file | Prisma, raw `pg` client | Drizzle has less "magic"/codegen than Prisma but a less polished migration story (this project uses push, not migrations — see [§10.2](#102-schema-management-push-based-not-migration-based)) |
+| **Drizzle ORM** | Type-safe schema definitions + query building, direct SQL escape hatch | `src/db/*`, every domain's data-access file | Prisma, raw `pg` client | Drizzle has less "magic"/codegen than Prisma but a less polished migration story (this project uses push, not migrations — see [§10.2](#102-schema-management-versioned-sql-migrations)) |
 | **`@neondatabase/serverless`** | The HTTP-based Postgres driver compatible with Vercel's serverless (non-persistent-connection) execution model | `src/db/index.ts` | A traditional `pg` connection pool | Traditional pooled connections don't survive serverless cold starts well; the trade-off here is one HTTP round trip per query instead of a kept-open TCP socket |
 | **Apache ECharts** (`echarts`, `echarts-for-react`) | The single charting library used for every visualization in the app (line/bar/scatter/heatmap) | `src/ui/charts/Chart.tsx` and every page with a chart | Recharts, Chart.js | The project's own history notes it *consolidated* to ECharts and dropped Recharts/Chart.js, which two of the three original apps used separately — one charting library, one visual language, smaller bundle |
 | **jsPDF** | Generates the executive-report PDFs entirely client-side, no PDF-generation server needed | `src/core/report/index.ts` | A server-side PDF service (Puppeteer, a hosted API) | jsPDF's drawing API is low-level (you position text/rectangles by pixel coordinates yourself) — more code, but zero external dependency or cost |
@@ -1717,9 +1715,11 @@ library would add more ceremony than it would save.
 | **`class-variance-authority` (cva)** | Defines component style *variants* (e.g., a `Badge`'s tone: `good`/`warn`/`bad`/`neutral`) as a typed, composable API | `src/ui/components/Badge.tsx` | Manual `className` string concatenation with `if` statements | cva keeps variant logic declarative and type-checked instead of a growing pile of conditional string concatenation |
 | **`clsx` + `tailwind-merge`** (combined in `src/ui/cn.ts`) | `clsx` conditionally joins class name strings; `tailwind-merge` then resolves conflicting Tailwind utility classes (e.g., if both `px-2` and `px-4` end up in the same string, it keeps only the last one) so a component's default classes can be safely overridden by a caller-supplied `className` prop | Every UI component | Plain template-string concatenation | Without `tailwind-merge`, passing an overriding `className` prop can silently produce broken, conflicting CSS instead of the intended override |
 | **`date-fns`** | Date arithmetic for the forecasting module (adding days/weeks/months, formatting ISO dates) | `src/core/forecast/index.ts` | The native `Date` object directly | Native `Date` math (especially month/week arithmetic across month boundaries) is notoriously error-prone; `date-fns` provides correct, well-tested functions |
-| **Vitest** | The test runner | `vitest.config.ts`, every `*.test.ts` file | Jest | Vitest shares Vite's fast dev-server transform pipeline, so tests start and re-run near-instantly; this project's 111 tests across 14 files run in about one second |
+| **Vitest** | The test runner | `vitest.config.ts`, every `*.test.ts` file | Jest | Vitest shares Vite's fast dev-server transform pipeline, so tests start and re-run near-instantly; this project's 137 tests across 15 files run in about two seconds |
 | **ESLint** (`eslint-config-next`) | Lints for correctness and Next.js-specific pitfalls | Every source file, enforced in CI | — | — |
 | **Tailwind CSS v4** | Utility-first CSS — the entire design system's spacing/color/typography scale is defined as CSS custom properties in `globals.css` and consumed via Tailwind utility classes | Every `.tsx` file's `className` | Hand-written CSS modules / styled-components | Utility classes keep styling co-located with markup and avoid a separate stylesheet per component, at the cost of longer `className` strings |
+| **pg** (node-postgres) | Standard Postgres driver for local development, self-hosting and migrations | `src/db/index.ts`, `scripts/db-migrate.ts` | Only the Neon driver | One extra dependency, but the app runs on any Postgres and DDL migrations get real transactions |
+| **server-only** | Build-time guard: importing a server module from client code fails the build | `src/server/*`, dataset providers | Discipline alone | Tiny, official; prevents leaking DB code or secrets into bundles |
 | **Ollama** (accessed via plain `fetch`, no SDK) | A local LLM runtime the AI Advisor talks to when available | `src/core/advisor/index.ts` | A hosted API like OpenAI/Anthropic | Zero API cost and no vendor API key required, but genuinely unavailable in production (no `localhost` on Vercel) — hence the mandatory deterministic fallback |
 
 ---
@@ -1729,10 +1729,10 @@ library would add more ceremony than it would save.
 ### `package.json`
 
 Defines the npm scripts (`dev`, `build`, `start`, `lint`, `typecheck`, `test`,
-`db:push`) and pins every dependency version. Notably, `xlsx` is listed as a
-runtime dependency (not a dev dependency) because it's used inside an API
-route (`ingest-operations`) that runs on the server at request time, not just
-during local scripts.
+`db:migrate`, `db:status`) and pins every dependency version. `xlsx` (SheetJS,
+from the vendor's tarball) and `pg` are runtime dependencies because the
+import route parses files and local/self-hosted Postgres uses node-postgres at
+request time.
 
 ### `tsconfig.json`
 
@@ -1823,67 +1823,30 @@ time — the build only needs the *code* to compile and type-check correctly.
 
 ## 16. Complete Execution Traces (User Actions Step by Step)
 
-### 16.1 Trace: A user uploads a CSV file and ingests it into Operations
+### 16.1 Trace: A visitor uploads a file and imports it
 
 ```text
-User selects/drops a CSV file on the /data page
+First visit → proxy.ts issues csiq_ws cookie (random 256-bit token)
  ↓
-DataManager.tsx: handleFiles() is called with the FileList
+/data: drag a CSV onto the dropzone → XHR POST /api/data/upload (real progress)
  ↓
-For the file: create an XMLHttpRequest, build a FormData with
-  the file + selected scope, call uploadWithProgress()
+route: requireWorkspace() → validateUpload → parseBuffer (PapaParse / SheetJS)
+       → quota check → INSERT workspace_files (bytes base64 + sha256)
  ↓
-xhr.upload.onprogress fires repeatedly as bytes leave the browser →
-  React state updates → the progress bar animates in real time
+User presses Import → ImportDialog
+  suggestKind(columns) → "Order lines"; autoMap(columns) fills the mapping
+  POST …/import { kind, mapping, dryRun: true } (debounced on every change)
+    → validateRows → plan → count existing keys → preview (counts, issues, sample)
  ↓
-POST /api/data/upload (multipart/form-data) reaches the server
+User presses "Import N rows" → POST …/import { kind, mapping }
+  → caps → INSERT data_imports (pending) ON CONFLICT DO NOTHING   ← the claim
+  → atomic([...chunked fact INSERTs ON CONFLICT DO NOTHING,
+            UPDATE data_imports SET committed, rows_inserted = (SELECT count…)])
+  → revalidateTag('ws:<id>', { expire: 0 })
  ↓
-Route handler: form.get('file') → validateUpload(name, size)
-  → detectFormat() → 'csv'
+Dialog: "Imported 1,356 rows · 3,617 duplicates skipped" → View Operations insights
  ↓
-core/workspace.parseBuffer('csv', bytes) → PapaParse parses the
-  text into { columns, rowCount, sampleRows, rows }
- ↓
-db.insert(workspaceFiles).values({ ...metadata, rawBase64 }).returning()
-  → Neon Postgres INSERT
- ↓
-201 response with the new file's metadata (never the raw bytes)
- ↓
-DataManager: upload item removed from the in-flight list; refresh()
-  re-fetches GET /api/data/files → the new file appears in the table
- ↓
-User clicks the "Load into Operations" icon on that row
- ↓
-window.confirm() asks for explicit confirmation (row count shown)
- ↓
-POST /api/data/files/[id]/ingest-operations
- ↓
-Route: fetch file row → guard checks (tabular? ready? not already
-  ingested? under 25,000 rows?) → parseBuffer() the FULL stored bytes
- ↓
-mapColumns(columns) → heuristic header matching → { mapping, missing }
-  (if required fields are missing, 400 with a specific message)
- ↓
-buildRecords(rows, mapping) → validates every row individually,
-  builds deduplicated customer/product/invoice Maps + a lines array
- ↓
-chunkInsert() in batches of 1,000 → four separate bulk INSERTs
-  into operations_customers / _products / _invoices / _invoice_lines
- ↓
-INSERT into operations_etl_logs (audit trail)
- ↓
-UPDATE workspace_files SET ingested_at = now()
- ↓
-revalidateTag('operations', 'max') → the 1-hour analytics cache
-  is invalidated immediately
- ↓
-200 response: { ingested: { lines, invoices, customers, products, skipped } }
- ↓
-DataManager: flash() shows a success notice with the exact counts
- ↓
-Next time ANY Operations page is opened, buildSnapshot() re-queries
-  Postgres (cache miss) and the new data is reflected everywhere —
-  Decision Center, Forecasting, Reports, and the AI Advisor all agree
+/operations: resolveDataSource → 'workspace' → data.ts queries WHERE workspace_id = $ws
 ```
 
 ### 16.2 Trace: A user opens the Operations Decision Center
@@ -2064,7 +2027,7 @@ without a custom protocol per feature.
 **Technical:** this codebase's `/api/data/files` family is a textbook REST
 resource: `GET /api/data/files` lists the collection, `GET .../[id]` reads
 one, `PATCH .../[id]` partially updates one, `DELETE .../[id]` removes one.
-The `/reprocess` and `/ingest-operations` sub-routes are **actions**, not
+The `/reprocess`, `/import` and `/undo` sub-routes are **actions**, not
 pure resources — a common, pragmatic deviation from strict REST purity when
 an operation is a verb ("re-process this file") rather than a state
 replacement.
@@ -2193,18 +2156,16 @@ route calls `revalidateTag('operations', 'max')` to force-invalidate that
 cache the instant new data is loaded, rather than waiting up to an hour for
 stale data to expire naturally.
 
-### 17.12 Middleware
+### 17.12 Middleware (Next 16 "proxy")
 
-**Simple:** a checkpoint every request passes through before it reaches its
-actual destination — useful for things every request needs (like checking a
-login cookie), so you don't repeat that logic in every single page.
+**Simple:** a checkpoint every request passes before reaching a page.
 
-**Technical:** Next.js Middleware is a special file (`src/middleware.ts`) that
-runs on the Edge before a route is matched. **This project has no middleware
-file** — there is no cross-cutting request-interception logic to apply,
-because there's no authentication or rate-limiting to gate every request
-through. See [§12](#12-authentication-and-why-there-isnt-any) for how this
-would be added if needed.
+**Technical:** in Next.js 16 middleware is called **proxy** (`src/proxy.ts`).
+This app uses it for two things: issuing the anonymous workspace cookie on a
+first visit, and rejecting state-changing `/api` requests whose `Origin`
+doesn't match the host (CSRF defense, including for the route that *sets* the
+workspace cookie). It does no database work; the docs warn proxy is not for
+slow data fetching.
 
 ### 17.13 Hydration, revisited with an analogy
 
@@ -2235,32 +2196,22 @@ content from appearing.
 
 ### 17.15 Database Transactions
 
-**Simple:** either the whole set of changes happens, or none of them do — like
-a bank transfer, where money leaving one account and arriving in another must
-both succeed or both fail; you can never end up with money vanishing partway
-through.
+**Simple:** either the whole set of changes happens, or none of them do.
 
-**Technical:** the multi-table ingest (products → customers → invoices →
-invoice_lines → ETL log) in `ingest-operations/route.ts` runs as **one
-transaction**. The Neon HTTP driver cannot run *interactive* transactions
-(`db.transaction(async (tx) => …)` throws "No transactions support in neon-http
-driver"), so the route uses `db.batch([...])` instead, which Drizzle sends as a
-single non-interactive Neon transaction: every chunked insert commits together
-or none do.
-
-Concurrency is handled separately with an **atomic claim** before the batch:
-`UPDATE workspace_files SET ingested_at = now() WHERE id = $1 AND ingested_at IS
-NULL RETURNING id`. Only one request can win that update, so a double-click or
-retry gets `409` instead of inserting the lines twice. If the batch fails, the
-claim is released (`ingested_at = NULL`) so the user can retry cleanly.
-
-**Analogy:** the claim is taking the only key to a room; the batch is moving all
-the furniture in one trip, so the room is never left half-furnished.
+**Technical:** every import, undo and workspace erase runs through `atomic()`
+(`src/db/index.ts`). On Neon it sends the statements as one `db.batch()`, which
+the HTTP driver executes as a single non-interactive transaction (the driver
+has no interactive `BEGIN … COMMIT`). On any other Postgres it uses a real
+transaction via node-postgres. Concurrency is handled by a partial unique index
+on the import ledger rather than locks: the second request's insert simply
+conflicts. Verified in testing: a CHECK violation in the last statement left
+zero rows from the earlier ones, and three simultaneous commits of one file
+produced exactly one import.
 
 ### 17.16 REST vs. RPC-style Actions
 
-Already covered under [§17.3](#173-rest-apis) — the `/reprocess` and
-`/ingest-operations` endpoints are pragmatic action-style routes layered on
+Already covered under [§17.3](#173-rest-apis) — the `/reprocess`, `/import`
+and `/undo` endpoints are pragmatic action-style routes layered on
 top of an otherwise resource-oriented API.
 
 ### 17.17 What This Codebase Does *Not* Use (and why that's worth knowing)
@@ -2287,7 +2238,7 @@ lists but genuinely absent here:
 
 ## 18. Testing Strategy
 
-**111 tests across 14 files**, run with `npm test` (Vitest), covering
+**137 tests across 15 files**, run with `npm test` (Vitest), covering
 `src/core/**` and `src/domains/**` exclusively — deliberately **not** UI
 components, per the scoping decision in `vitest.config.ts` discussed in
 [§15](#15-every-configuration-file-explained).
@@ -2370,8 +2321,8 @@ plans. Two routes explicitly override this:
 - `src/app/[domain]/page.tsx` and `[...slug]/page.tsx` export `maxDuration =
   30` because Operations' first, uncached page load can take several seconds
   querying ~1M rows.
-- `ingest-operations/route.ts` exports `maxDuration = 60` because bulk-
-  inserting up to 25,000 rows in batches of 1,000 needs more headroom.
+- `import/route.ts` and `undo/route.ts` export `maxDuration = 60` because
+  writing up to 25,000 rows in one transaction needs more headroom.
 
 ---
 
@@ -2385,7 +2336,7 @@ an unreachable database) produced these changes:
 | `next@16.2.9` carried a batch of critical advisories | Upgraded to `16.3.8` (with `eslint-config-next`) |
 | `xlsx@0.18.5` (npm) had prototype-pollution / ReDoS advisories on a parser of public uploads | Vendor-patched SheetJS `0.20.3`, plus first-sheet-only, row-capped, formula-free parsing |
 | Reprocess cleared the ingest guard, so the same file could be ingested twice | Only Replace (new bytes) resets `ingestedAt` |
-| Ingest was non-atomic and check-then-act | Atomic claim + single-transaction `db.batch()` ([§8.4](#84-the-ingest-pipeline--the-most-complex-single-request-in-the-app)) |
+| Ingest was non-atomic and check-then-act | Atomic claim + single-transaction `db.batch()` ([§8.4](#85-the-import-service-srcserverimportsts)) |
 | Raw database errors (containing SQL text) were returned to clients | Generic `503`; details logged server-side |
 | Unbounded storage behind an unauthenticated upload API | 200-file / 100 MB workspace quota (`413`) |
 | 8 unused `@radix-ui/*` packages; a stale duplicate `ReportButton` | Removed; Operations uses the shared component |
@@ -2394,11 +2345,18 @@ an unreachable database) produced these changes:
 remaining dev-only advisories come through `drizzle-kit`'s bundled `esbuild` and
 never ship).
 
-**Still open, by priority:** (1) tag invoice lines with their source workspace
-file so overlapping uploads can be de-duplicated and undone per file — a schema
-change; (2) authentication or an admin token for write routes, plus rate
-limiting; (3) a nonce-based Content-Security-Policy; (4) integration tests for
-the data routes against a disposable Neon branch.
+**Then (bring-your-own-data release):** private workspaces, an import ledger
+with exact undo, content-key de-duplication, six import types across all three
+modules, CSRF origin checks, per-workspace and deployment-wide caps, and
+versioned SQL migrations (rehearsed on a full production restore, with a
+verified down migration). That closed the two items previously listed first:
+per-file undo/de-dup and isolation of visitors' data.
+
+**Still open, by priority:** (1) rate limiting on uploads/imports; (2) expiry
+of inactive workspaces (a daily Vercel cron would do it at $0); (3) a
+nonce-based Content-Security-Policy; (4) automated integration tests for the
+data routes against a disposable database (they were exercised end to end
+manually for this release).
 
 ---
 
@@ -2552,6 +2510,34 @@ plain-JavaScript constant files, with comments explaining why.
   tagged with their source file, so two *different* files with overlapping
   rows can still double-count, and ingested rows cannot be rolled back per file.
 
+### Workspaces & Imports
+
+- **Q (Beginner): How can visitors have private data without logging in?**
+  A: Each browser gets a random 256-bit token in an httpOnly cookie; the server
+  hashes it into a workspace id and filters every query by that id. Knowing the
+  token (or the recovery link) is what grants access.
+
+- **Q (Intermediate): How does undo work when imports share customers and
+  products?**
+  A: Fact rows carry `import_id`, so undo deletes exactly those rows. Dimension
+  rows are shared, so after deleting facts the same transaction removes only
+  dimensions no remaining line references. Tested: undoing a Belgian import
+  returned the counts to exactly Germany's totals.
+
+- **Q (Advanced): How do you de-duplicate event rows that have no ID, without
+  merging rows that are genuinely repeated?**
+  A: Hash the row's fields together with its occurrence index for that exact
+  tuple within the file. An overlapping export reproduces the same keys (the
+  unique index skips them); two identical rows in one file get indices 0 and 1
+  and are both kept.
+
+- **Q (Advanced): How do you stop a double-click from importing twice when the
+  HTTP driver has no interactive transactions?**
+  A: Claim first with an insert into the ledger guarded by a partial unique
+  index on (workspace, kind, content hash) for live rows; the loser gets 409.
+  The data itself is written in one `batch()` transaction that also flips the
+  ledger to committed.
+
 ### State / Frontend
 
 - **Q (Beginner): What's the difference between a Server Component and a
@@ -2598,7 +2584,7 @@ serverless architecture (Vercel + Neon) already scales horizontally by
 default — the constraint is query efficiency, not server capacity.
 
 **"How would you add authentication?"**
-Answered in full in [§12](#12-authentication-and-why-there-isnt-any).
+Answered in full in [§12](#12-identity-private-workspaces-instead-of-accounts).
 
 **"Why this architecture over a simpler single-app design?"**
 Because the entire point of this project is demonstrating that a shared
@@ -2687,14 +2673,14 @@ CSV of their own order data onto the dropzone. `DataManager.tsx` uses a raw
 `XMLHttpRequest` to get real upload-progress percentages, `POST`s to
 `/api/data/upload`, which validates the file, parses it with PapaParse, and
 stores it (base64-encoded) in the `workspace_files` table. The file appears
-in the table. The visitor clicks the ingest icon; after a confirmation
-prompt, `POST /api/data/files/[id]/ingest-operations` runs the full guarded
-pipeline (format check → already-ingested check → row-limit check → heuristic
-column mapping → per-row validation → chunked bulk insert → cache
-invalidation) and returns exact insert/skip counts. The Data Manager shows a
-success notice. The next time the visitor opens the Decision Center, the
-newly ingested rows are already reflected — the 1-hour cache was force-
-invalidated the moment ingestion succeeded.
+in the table. The visitor presses **Import**: the dialog suggests *Order
+lines*, auto-maps the columns, and shows a dry run (rows to import, duplicates
+already in the workspace, every rejected value with its row number). Pressing
+*Import N rows* claims a ledger row and writes everything in one transaction,
+then offers *View Operations insights*. The Decision Center now shows the
+visitor's own revenue and decisions; the statusline reads *Your data*, and the
+*Sample* switch brings the UCI sample back. Any import can be undone exactly
+from Import history.
 
 **5. Asking the AI Advisor.** The visitor opens the Operations Advisor page
 and types "How bad are returns?" `AdvisorChat` posts the question to

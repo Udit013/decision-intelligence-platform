@@ -11,6 +11,7 @@
  * by name+code, and the real distinct count is reported by MARKET_COUNT.
  */
 import type { Market, CompetitiveData, Opportunity } from './types'
+import { scoreIndicators, detectOpportunities, gdpPerCapita, consumerSpending } from './model'
 
 const RAW_COUNTRIES = [
   { name: 'United States', code: 'US', continent: 'North America', gdp: 27360, gdpGrowth: 2.5, pop: 335, internet: 92, mobile: 88, urban: 83, income: 65000, ppi: 100, ease: 84, tax: 21, inflation: 3.2, currency: 95 },
@@ -135,12 +136,6 @@ const RAW_COUNTRIES = [
   { name: 'Belarus', code: 'BY', continent: 'Europe', gdp: 73, gdpGrowth: 3.9, pop: 9.4, internet: 86, mobile: 80, urban: 80, income: 7800, ppi: 52, ease: 49, tax: 18, inflation: 5.7, currency: 42 },
 ]
 
-function gdpPerCapita(gdp: number, pop: number) {
-  return Math.round((gdp * 1000) / pop)
-}
-function consumerSpending(gdp: number, income: number) {
-  return Math.round(gdp * Math.min(0.72, 0.45 + (income / 100000) * 0.27) * 10) / 10
-}
 function historicalGdp(currentGdp: number, growth: number) {
   const years = [2019, 2020, 2021, 2022, 2023, 2024]
   const result: Array<{ year: number; value: number }> = []
@@ -175,23 +170,12 @@ function industryGrowth(gdpGrowth: number, internet: number): Record<string, num
   return out
 }
 
-/** Modeled scores (weights are editorial, not empirical). */
+/** Modeled scores via the shared market model (weights are editorial, not empirical). */
 function computeScores(c: (typeof RAW_COUNTRIES)[0]) {
-  const normalizedGdpPc = Math.min(100, (c.income / 100000) * 100)
-  const marketAttractiveness = Math.round(
-    normalizedGdpPc * 0.2 + c.ppi * 0.15 + Math.min(100, c.gdpGrowth * 8) * 0.2 + c.internet * 0.15 + c.ease * 0.15 + c.currency * 0.15,
-  )
-  const popScore = Math.min(100, Math.log10(c.pop * 10) * 30)
-  const opportunityRaw = popScore * 0.2 + Math.min(100, c.gdpGrowth * 9) * 0.25 + (100 - c.internet) * 0.2 + c.ppi * 0.15 + Math.min(100, c.gdp / 100) * 0.2
-  const opportunity = Math.round(Math.min(99, opportunityRaw * 1.28))
-  const risk = Math.round((100 - c.currency) * 0.25 + Math.min(100, c.inflation * 1.2) * 0.25 + (100 - c.ease) * 0.2 + (100 - c.ppi) * 0.15 + c.tax * 1.5 * 0.15)
-  const eoe = Math.round(c.ease * 0.35 + c.currency * 0.2 + c.internet * 0.15 + (100 - c.tax) * 0.15 + (100 - Math.min(100, c.inflation * 1.5)) * 0.15)
-  return {
-    marketAttractivenessScore: Math.max(0, Math.min(100, marketAttractiveness)),
-    opportunityScore: Math.max(0, Math.min(100, opportunity)),
-    riskScore: Math.max(0, Math.min(100, risk)),
-    easeOfEntry: Math.max(0, Math.min(100, eoe)),
-  }
+  return scoreIndicators({
+    gdp: c.gdp, gdpGrowth: c.gdpGrowth, population: c.pop, avgIncome: c.income, internet: c.internet,
+    ppi: c.ppi, ease: c.ease, tax: c.tax, inflation: c.inflation, currency: c.currency,
+  })
 }
 
 let _markets: Market[] | null = null
@@ -242,7 +226,7 @@ let _competitive: CompetitiveData[] | null = null
 export function generateCompetitiveData(): CompetitiveData[] {
   if (_competitive) return _competitive
   _competitive = generateMarkets().map((m) => {
-    const saturationBase = (m.gdpPerCapita / 100000) * 60 + (m.internetPenetration / 100) * 30
+    const saturationBase = (m.gdpPerCapita! / 100000) * 60 + (m.internetPenetration! / 100) * 30
     const saturation = Math.min(95, Math.max(5, saturationBase + Math.sin(m.id.charCodeAt(7) || 1) * 15))
     const compCount = Math.round(3 + (saturation / 100) * 47)
     const concentration = Math.round(1000 + (saturation / 100) * 6000)
@@ -254,31 +238,17 @@ export function generateCompetitiveData(): CompetitiveData[] {
       marketConcentration: concentration,
       competitiveDensity: Math.round(Math.min(95, saturation * 0.9 + 5)),
       topPlayers: Array.from({ length: playerCount }, (_, i) => ({
-        name: COMPETITOR_NAMES[(m.code.charCodeAt(0) + i) % COMPETITOR_NAMES.length],
+        name: COMPETITOR_NAMES[(m.code!.charCodeAt(0) + i) % COMPETITOR_NAMES.length],
         marketShare: Math.round((30 - i * 5 + Math.sin(i * 2) * 5) * 10) / 10,
         strength: (['dominant', 'strong', 'moderate', 'weak'] as const)[Math.min(3, i)],
       })),
       competitivePressureScore: Math.min(100, Math.round(saturation * 0.6 + (concentration / 10000) * 40)),
-      entryDifficultyScore: Math.min(100, Math.round((100 - m.easeOfEntry) * 0.5 + saturation * 0.3 + saturation * 0.6 * 0.2)),
+      entryDifficultyScore: Math.min(100, Math.round((100 - m.easeOfEntry!) * 0.5 + saturation * 0.3 + saturation * 0.6 * 0.2)),
     }
   })
   return _competitive
 }
 
 export function generateOpportunities(): Opportunity[] {
-  const markets = generateMarkets()
-  const compMap = new Map(generateCompetitiveData().map((c) => [c.marketId, c]))
-  const out: Opportunity[] = []
-  markets.forEach((m, i) => {
-    const comp = compMap.get(m.id)!
-    if (comp.marketSaturation < 35 && m.gdpGrowth > 5)
-      out.push({ id: `opp-${i}-1`, marketId: m.id, marketName: m.name, type: 'blue_ocean', title: `Blue Ocean in ${m.name}`, description: `High growth (${m.gdpGrowth}% GDP) with low saturation (${comp.marketSaturation}%).`, opportunityScore: Math.round((m.opportunityScore + (100 - comp.marketSaturation)) / 2), marketPotential: Math.round(m.gdp * 0.08 * 1000), expectedRevenue: Math.round(m.gdp * 0.012 * 1000), confidenceScore: Math.round(65 + m.gdpGrowth * 3), timeHorizon: m.gdpGrowth > 7 ? 'short' : 'medium', drivers: [`${m.gdpGrowth}% GDP growth`, `Low saturation ${comp.marketSaturation}%`], risks: [`Currency stability ${m.currencyStability}/100`] })
-    if (m.internetPenetration < 65 && m.gdpGrowth > 4)
-      out.push({ id: `opp-${i}-2`, marketId: m.id, marketName: m.name, type: 'emerging', title: `Emerging Digital: ${m.name}`, description: `Accelerating digital adoption (${m.internetPenetration}% internet) in a largely untapped market.`, opportunityScore: Math.round((m.gdpGrowth * 8 + (100 - m.internetPenetration) * 0.4) / 2), marketPotential: Math.round(m.population * 45), expectedRevenue: Math.round(m.population * 6), confidenceScore: Math.round(55 + m.gdpGrowth * 2), timeHorizon: 'medium', drivers: [`${m.population}M population`, `${m.gdpGrowth}% growth`], risks: ['Infrastructure limits', 'Regulatory uncertainty'] })
-    if (m.purchasingPowerIndex > 65 && comp.marketSaturation < 50)
-      out.push({ id: `opp-${i}-3`, marketId: m.id, marketName: m.name, type: 'underserved', title: `Premium Underserved: ${m.name}`, description: `Strong purchasing power (PPI ${m.purchasingPowerIndex}) with limited premium competition.`, opportunityScore: Math.round((m.purchasingPowerIndex + (100 - comp.marketSaturation)) / 2), marketPotential: Math.round(m.consumerSpending * 150), expectedRevenue: Math.round(m.consumerSpending * 20), confidenceScore: Math.round(70 + (m.easeOfDoingBusiness - 60) * 0.5), timeHorizon: 'short', drivers: [`PPI ${m.purchasingPowerIndex}`, `Consumer spend $${m.consumerSpending}B`], risks: ['Incumbent response'] })
-    if (m.population > 50 && m.gdpGrowth > 3)
-      out.push({ id: `opp-${i}-4`, marketId: m.id, marketName: m.name, type: 'growth_surge', title: `Mass Market Surge: ${m.name}`, description: `${m.population}M population with ${m.gdpGrowth}% GDP growth — large addressable market.`, opportunityScore: Math.min(99, Math.round(m.gdpGrowth * 8 + Math.log10(m.population) * 15)), marketPotential: Math.round(m.gdp * 0.12 * 1000), expectedRevenue: Math.round(m.gdp * 0.015 * 1000), confidenceScore: Math.round(60 + m.gdpGrowth * 2.5), timeHorizon: 'medium', drivers: [`${m.population}M base`, `${m.gdpGrowth}% growth`], risks: ['Local competition', 'Logistics'] })
-  })
-  return out.sort((a, b) => b.opportunityScore - a.opportunityScore).slice(0, 150)
+  return detectOpportunities(generateMarkets(), generateCompetitiveData())
 }

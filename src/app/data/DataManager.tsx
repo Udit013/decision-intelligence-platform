@@ -1,19 +1,22 @@
 'use client'
 
 /**
- * Data Manager — client UI for the shared data workspace.
+ * Data Manager — client UI for the visitor's private workspace.
  * Upload (drag-drop or picker, multi-file, per-file progress), then preview,
- * rename, re-scope, replace, reprocess, ingest-to-Operations, and delete.
+ * rename, re-scope, replace, reprocess, delete — and Import any tabular file
+ * into Operations, Market or Product analytics, with an undoable history.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  UploadCloud, Trash2, Eye, RefreshCw, Pencil, Database, X, FileText, CheckCircle2, AlertTriangle,
+  UploadCloud, Trash2, Eye, RefreshCw, Pencil, X, FileText, CheckCircle2, AlertTriangle, ArrowDownToLine,
 } from 'lucide-react'
 import { Card, CardBody, CardHeader, CardTitle } from '@/ui/components/Card'
 import { Badge } from '@/ui/components/Badge'
 import { cn } from '@/ui/cn'
 import { MAX_FILE_LABEL, SCOPES, formatBytes, isTabular, type FileFormat, type FileScope } from '@/core/workspace'
 import type { WorkspaceFileDto } from '@/app/api/data/_lib'
+import { ImportDialog } from './ImportDialog'
+import { ImportHistory, type ImportRow } from './ImportHistory'
 
 interface UploadItem {
   key: string
@@ -51,16 +54,23 @@ export function DataManager() {
   const [preview, setPreview] = useState<WorkspaceFileDto | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [imports, setImports] = useState<ImportRow[]>([])
+  const [importing, setImporting] = useState<WorkspaceFileDto | null>(null)
   const pickerRef = useRef<HTMLInputElement>(null)
   const replaceRef = useRef<HTMLInputElement>(null)
   const replaceTarget = useRef<string | null>(null)
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch('/api/data/files', { cache: 'no-store' })
+      const [res, impRes] = await Promise.all([
+        fetch('/api/data/files', { cache: 'no-store' }),
+        fetch('/api/data/imports', { cache: 'no-store' }),
+      ])
       const body = await res.json()
       if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`)
       setFiles(body.files)
+      const impBody = await impRes.json().catch(() => ({}))
+      if (impRes.ok) setImports(impBody.imports)
       setLoadError(null)
     } catch (e) {
       setLoadError((e as Error).message)
@@ -107,12 +117,6 @@ export function DataManager() {
       const res = await fn()
       const body = await res.json().catch(() => ({}))
       if (!res.ok) flash(body.error ?? `Action failed (HTTP ${res.status}).`)
-      else if (body.ingested) {
-        flash(
-          `Ingested into Operations: ${body.ingested.lines.toLocaleString()} lines, ${body.ingested.invoices.toLocaleString()} invoices` +
-            (body.ingested.skipped ? ` (${body.ingested.skipped} rows skipped)` : '') + '. Analytics refreshed.',
-        )
-      }
     } catch (e) {
       flash((e as Error).message)
     } finally {
@@ -128,7 +132,7 @@ export function DataManager() {
   }
 
   const remove = (f: WorkspaceFileDto) => {
-    if (!window.confirm(`Delete "${f.name}"? This cannot be undone.`)) return
+    if (!window.confirm(`Delete "${f.name}"? This cannot be undone.\n\nData already imported from it stays — undo the import in Import history to remove that too.`)) return
     act(f.id, () => fetch(`/api/data/files/${f.id}`, { method: 'DELETE' }))
   }
 
@@ -137,10 +141,6 @@ export function DataManager() {
 
   const reprocess = (f: WorkspaceFileDto) => act(f.id, () => fetch(`/api/data/files/${f.id}/reprocess`, { method: 'POST' }))
 
-  const ingest = (f: WorkspaceFileDto) => {
-    if (!window.confirm(`Load "${f.name}" (${f.rowCount?.toLocaleString()} rows) into the Operations analytics?`)) return
-    act(f.id, () => fetch(`/api/data/files/${f.id}/ingest-operations`, { method: 'POST' }))
-  }
 
   const startReplace = (f: WorkspaceFileDto) => {
     replaceTarget.current = f.id
@@ -177,7 +177,7 @@ export function DataManager() {
           <UploadCloud className="h-5 w-5 text-[var(--accent)]" />
         </span>
         <p className="mt-4 font-display text-[17px] font-semibold">Drag &amp; drop files here, or click to browse</p>
-        <p className="kicker mt-2 normal-case tracking-[0.06em]">
+        <p className="kicker mt-2 whitespace-normal normal-case tracking-[0.06em]">
           CSV · XLSX · JSON · TXT · PDF · DOCX — up to {MAX_FILE_LABEL} each, multiple files supported
         </p>
         <label className="mt-4 flex items-center gap-2 font-mono text-[11px] text-muted" onClick={(e) => e.stopPropagation()}>
@@ -249,34 +249,33 @@ export function DataManager() {
           {loadError && <p className="py-6 text-center text-sm text-bad">{loadError}</p>}
           {files?.length === 0 && !loadError && (
             <p className="py-8 text-center text-sm text-muted">
-              No files yet — drop your first dataset above. Tabular files (CSV/XLSX/JSON) become previewable datasets;
-              CSV order lines can be loaded straight into the Operations analytics.
+              No files yet — drop your first dataset above, or start from a template on the right. Tabular files
+              (CSV/XLSX/JSON) can then be imported into any module.
             </p>
           )}
           {!!files?.length && (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto"><table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left font-mono text-[10px] uppercase tracking-widest text-muted">
-                  <th className="py-2">Name</th>
-                  <th className="py-2">Format</th>
-                  <th className="py-2 text-right">Size</th>
-                  <th className="py-2 text-right">Rows</th>
-                  <th className="py-2">Scope</th>
-                  <th className="py-2">Status</th>
+                  <th className="py-2 pr-4">File</th>
+                  <th className="py-2 pr-4 text-right">Rows</th>
+                  <th className="py-2 pr-4">Scope</th>
+                  <th className="py-2 pr-4">Status</th>
                   <th className="py-2 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {files.map((f) => (
                   <tr key={f.id} className={cn('border-b border-border/50', busyId === f.id && 'opacity-50')}>
-                    <td className="max-w-[220px] py-2 pr-2">
+                    <td className="max-w-[240px] py-2.5 pr-4">
                       <span className="block truncate font-medium" title={f.originalFilename}>{f.name}</span>
-                      {f.ingestedAt && <span className="text-[10px] text-good">ingested into Operations</span>}
+                      <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted">
+                        {f.format} · {formatBytes(f.sizeBytes)}
+                        {imports.some((i) => i.status === 'committed' && i.fileId === f.id) && <span className="text-good"> · imported</span>}
+                      </span>
                     </td>
-                    <td className="py-2"><Badge tone="neutral">{f.format.toUpperCase()}</Badge></td>
-                    <td className="py-2 text-right tabular-nums">{formatBytes(f.sizeBytes)}</td>
-                    <td className="py-2 text-right tabular-nums">{f.rowCount?.toLocaleString() ?? '—'}</td>
-                    <td className="py-2">
+                    <td className="py-2.5 pr-4 text-right tabular-nums">{f.rowCount?.toLocaleString('en-US') ?? '—'}</td>
+                    <td className="py-2.5 pr-4">
                       <select
                         value={f.scope}
                         onChange={(e) => changeScope(f, e.target.value)}
@@ -288,21 +287,27 @@ export function DataManager() {
                         ))}
                       </select>
                     </td>
-                    <td className="py-2">
+                    <td className="py-2.5 pr-4">
                       {f.status === 'ready' ? (
                         <span className="inline-flex items-center gap-1 text-xs text-good"><CheckCircle2 className="h-3.5 w-3.5" /> ready</span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-xs text-bad" title={f.error ?? ''}><AlertTriangle className="h-3.5 w-3.5" /> error</span>
                       )}
                     </td>
-                    <td className="py-2">
+                    <td className="py-2.5">
                       <div className="flex items-center justify-end gap-1">
                         <IconBtn title="Preview" onClick={() => setPreview(f)}><Eye className="h-4 w-4" /></IconBtn>
                         <IconBtn title="Rename" onClick={() => rename(f)}><Pencil className="h-4 w-4" /></IconBtn>
                         <IconBtn title="Replace with a new file" onClick={() => startReplace(f)}><UploadCloud className="h-4 w-4" /></IconBtn>
                         <IconBtn title="Reprocess (re-parse stored file)" onClick={() => reprocess(f)}><RefreshCw className="h-4 w-4" /></IconBtn>
-                        {isTabular(f.format as FileFormat) && f.status === 'ready' && !f.ingestedAt && (
-                          <IconBtn title="Load into Operations analytics" onClick={() => ingest(f)}><Database className="h-4 w-4" /></IconBtn>
+                        {isTabular(f.format as FileFormat) && f.status === 'ready' && (
+                          <button
+                            type="button"
+                            onClick={() => setImporting(f)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-fg px-2.5 py-1.5 text-xs font-semibold text-bg transition-colors hover:bg-fg/85"
+                          >
+                            <ArrowDownToLine className="h-3.5 w-3.5" /> Import
+                          </button>
                         )}
                         <IconBtn title="Delete" onClick={() => remove(f)} danger><Trash2 className="h-4 w-4" /></IconBtn>
                       </div>
@@ -310,10 +315,14 @@ export function DataManager() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           )}
         </CardBody>
       </Card>
+
+      <ImportHistory imports={imports} onChanged={refresh} flash={flash} />
+
+      {importing && <ImportDialog file={importing} onClose={() => setImporting(null)} onImported={refresh} />}
 
       {/* ── Preview modal ── */}
       {preview && (

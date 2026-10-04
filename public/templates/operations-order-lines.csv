@@ -1,0 +1,9 @@
+Order ID,SKU,Product name,Quantity,Unit price,Order date,Customer ID,Country
+SO-1001,MUG-RED,Red enamel mug,4,6.50,2025-01-06 09:12,C-001,United Kingdom
+SO-1001,BAG-JUTE,Jute shopping bag,2,3.25,2025-01-06 09:12,C-001,United Kingdom
+SO-1002,LAMP-DSK,Desk lamp,1,24.00,2025-01-07 14:30,C-002,France
+SO-1003,MUG-RED,Red enamel mug,12,6.10,2025-01-09 11:05,C-003,Germany
+SO-1004,CANDLE-SM,Scented candle small,6,4.75,2025-01-13 16:40,C-001,United Kingdom
+C-SO-1003,MUG-RED,Red enamel mug,-2,6.10,2025-01-15 10:00,C-003,Germany
+SO-1005,BAG-JUTE,Jute shopping bag,10,3.10,2025-01-20 08:55,C-004,Netherlands
+SO-1006,LAMP-DSK,Desk lamp,2,23.50,2025-01-27 13:20,C-002,France

@@ -4,20 +4,20 @@
  */
 import { synthesize, type Signal, type Recommendation } from '@/core/recommend'
 import { rankInitiatives } from './prioritization'
-import { getExperiments } from './experiments'
 import { discoverOpportunities } from './opportunities'
+import type { ProductInsights } from './insights'
 
-export function buildProductDecisions(): Recommendation[] {
+export function buildProductDecisions(ins: ProductInsights): Recommendation[] {
   const signals: Signal[] = []
 
   // 1. Top RICE initiative.
-  const top = rankInitiatives('rice')[0]
+  const top = ins.initiatives.length ? rankInitiatives('rice', ins.initiatives)[0] : undefined
   if (top) {
     signals.push({
       id: 'ship-top',
       category: 'Roadmap',
       title: `Ship "${top.name}" next`,
-      recommendation: `Highest RICE initiative (${top.rice}). ${top.description}`,
+      recommendation: `Highest RICE initiative (${top.rice}).${top.description ? ` ${top.description}` : ''}`,
       expectedResult: `Reaches ~${top.reach.toLocaleString()} users/qtr`,
       confidence: top.confidence,
       impact: top.reach * top.impact,
@@ -26,7 +26,7 @@ export function buildProductDecisions(): Recommendation[] {
   }
 
   // 2. Significant experiment winners → roll out.
-  for (const e of getExperiments().filter((x) => x.stats.verdict === 'winner')) {
+  for (const e of ins.experiments.filter((x) => x.stats.verdict === 'winner')) {
     signals.push({
       id: `rollout-${e.name}`,
       category: 'Experiment',
@@ -40,7 +40,7 @@ export function buildProductDecisions(): Recommendation[] {
   }
 
   // 3. Top discovered opportunity.
-  const opp = discoverOpportunities()[0]
+  const opp = discoverOpportunities(ins)[0]
   if (opp) {
     signals.push({
       id: `opp-${opp.id}`,
@@ -50,7 +50,7 @@ export function buildProductDecisions(): Recommendation[] {
       expectedResult: `${opp.affectedUsers.toLocaleString()} users affected`,
       confidence: 0.6,
       impact: opp.affectedUsers,
-      reasoning: `Discovered from synthetic analytics (type: ${opp.type}).`,
+      reasoning: `Discovered from measured product analytics (type: ${opp.type}).`,
     })
   }
 

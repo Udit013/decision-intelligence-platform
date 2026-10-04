@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { marketsFromIndicators, competitiveFromShares, type IndicatorRow } from './model'
 import { generateMarkets, generateCompetitiveData, MARKET_COUNT } from './generator'
 import { generateMarketDecisions, generateEntryStrategies, simulateExpansion, MARKET_BUCKETS } from './scoring'
 
@@ -45,8 +46,8 @@ describe('expansion decisions — uses core/scoreAndClassify', () => {
   })
 
   it('ranks a strong market above a weak one', () => {
-    const strong = decisions.find((d) => d.opportunityScore > 70 && d.riskScore < 40)
-    const weak = decisions.find((d) => d.riskScore > 75)
+    const strong = decisions.find((d) => (d.opportunityScore ?? 0) > 70 && (d.riskScore ?? 100) < 40)
+    const weak = decisions.find((d) => (d.riskScore ?? 0) > 75)
     if (strong && weak) expect(strong.rank).toBeLessThan(weak.rank)
   })
 })
@@ -56,7 +57,7 @@ describe('scenario simulator — degrades gracefully on degenerate input', () =>
   const comp = generateCompetitiveData()[0]
 
   it('budget=0 and teamSize=0 produce finite numbers, not NaN/Infinity', () => {
-    const r = simulateExpansion(market, comp, { budget: 0, teamSize: 0, pricingStrategy: 'mid_market', marketingSpend: 0, strategy: 'direct' })
+    const r = simulateExpansion(market, comp, { budget: 0, teamSize: 0, pricingStrategy: 'mid_market', marketingSpend: 0, strategy: 'direct' })!
     for (const v of [r.expectedRevenue, r.expectedProfit, r.marketShareCapture, r.breakEvenMonths, r.roiProjection]) {
       expect(Number.isFinite(v)).toBe(true)
     }
@@ -75,5 +76,51 @@ describe('entry strategies — ranked via core primitive', () => {
     const strategies = generateEntryStrategies(markets[0], competitive[0])
     expect(strategies).toHaveLength(5)
     expect(strategies.map((s) => s.rank).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5])
+  })
+})
+
+describe('uploaded market data', () => {
+  const row = (over: Partial<IndicatorRow> = {}): IndicatorRow => ({
+    marketKey: 'testland', name: 'Testland', code: 'TL', region: 'Europe',
+    gdpUsdBn: 500, gdpGrowthPct: 4, populationM: 40, avgIncomeUsd: 30000, internetPct: 80, mobilePct: 85,
+    urbanPct: 70, purchasingPowerIndex: 70, easeOfBusiness: 75, taxRatePct: 22, inflationPct: 3, currencyStability: 85,
+    ...over,
+  })
+
+  it('scores complete rows exactly like the sample formula', () => {
+    const [m] = marketsFromIndicators([row()])
+    expect(m.dataCoverage).toBe(1)
+    expect(m.opportunityScore).not.toBeNull()
+  })
+
+  it('scores partial rows from the inputs present and never invents the rest', () => {
+    const [m] = marketsFromIndicators([row({ currencyStability: null, inflationPct: null, easeOfBusiness: null, purchasingPowerIndex: null, taxRatePct: null })])
+    expect(m.riskScore).toBeNull()
+    expect(m.easeOfEntry).not.toBeNull() // internet still informs ease of entry
+    expect(m.dataCoverage).toBeLessThan(1)
+    expect(m.currencyStability).toBeNull()
+  })
+
+  it('computes HHI and saturation from real competitor shares', () => {
+    const markets = marketsFromIndicators([row()])
+    const [c] = competitiveFromShares(markets, [
+      { marketKey: 'testland', competitor: 'A', marketSharePct: 50 },
+      { marketKey: 'testland', competitor: 'B', marketSharePct: 30 },
+    ])
+    expect(c.marketConcentration).toBe(50 ** 2 + 30 ** 2)
+    expect(c.marketSaturation).toBe(80)
+    expect(c.topPlayers[0]).toMatchObject({ name: 'A', strength: 'dominant' })
+  })
+
+  it('refuses to project a scenario without GDP', () => {
+    const [m] = marketsFromIndicators([row({ gdpUsdBn: null })])
+    expect(simulateExpansion(m, undefined, { budget: 500, teamSize: 10, pricingStrategy: 'value', marketingSpend: 100, strategy: 'direct' })).toBeNull()
+  })
+
+  it('ranks markets even when some decision criteria are missing', () => {
+    const markets = marketsFromIndicators([row(), row({ marketKey: 'thin', name: 'Thin', gdpGrowthPct: null, currencyStability: null })])
+    const decisions = generateMarketDecisions(markets, [])
+    expect(decisions).toHaveLength(2)
+    expect(decisions.every((d) => d.coverage > 0)).toBe(true)
   })
 })

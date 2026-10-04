@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import type { DomainPageProps } from '../../pages'
 import ExpansionCenter from './ExpansionCenter'
 import Markets from './Markets'
 import Competition from './Competition'
@@ -9,7 +10,7 @@ import Reports from './Reports'
 import Advisor from './Advisor'
 
 /** Maps market nav slugs (see registry) to page components. */
-export const marketPages: Record<string, ComponentType> = {
+export const marketPages: Record<string, ComponentType<DomainPageProps>> = {
   '': ExpansionCenter,
   markets: Markets,
   competition: Competition,

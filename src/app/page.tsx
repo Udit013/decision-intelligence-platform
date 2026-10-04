@@ -23,13 +23,13 @@ const PIPELINE = [
 ]
 
 const DATA_DOCS: Record<string, string> = {
-  operations: '~1.07M real UK e-commerce transactions (2009–2011). One-time ETL, or upload order lines in-app.',
-  market: '120 synthetic markets with realistic economic indicators. Zero setup — in-memory.',
-  product: '3,000 synthetic SaaS users with events, funnels & cohorts. Zero setup — in-memory.',
+  operations: 'Your order lines — or the sample: ~1.07M real UK e-commerce transactions (2009–2011).',
+  market: 'Your market indicators & competitor shares — or the sample: 120 synthetic markets.',
+  product: 'Your events, experiments & backlog — or the sample: 3,000 synthetic SaaS users.',
 }
 
 const STEPS = [
-  { t: 'Pick a module', d: 'Operations, Market, or Product — from the contents at right or the tabs inside.' },
+  { t: 'Bring your data', d: 'Upload CSV, Excel or JSON in the data manager; every import is checked, de-duplicated and undoable. Or explore the samples first.' },
   { t: 'Read the decision desk', d: 'Each module opens on ranked, confidence-scored decisions; the index drills into forecasts, segments, funnels, and scenarios.' },
   { t: 'Export or interrogate', d: 'Download the executive PDF, or ask the advisor in plain English — it answers from the live figures.' },
 ]
@@ -67,10 +67,11 @@ export default function Home() {
               <span className="text-[var(--color-cyan)]">printed on them.</span>
             </h1>
             <p className="mt-6 max-w-md text-[15px] leading-relaxed text-muted">
-              CoreSight IQ turns operations, market, and product data into confidence-scored
+              CoreSight IQ turns your operations, market, and product data into confidence-scored
               recommendations — forecasting with walk-forward backtesting, multi-criteria scoring,
-              executive reporting, and a local-AI analyst. Every figure it shows is measured, labeled,
-              or honestly disclaimed.
+              executive reporting, and a local-AI analyst. Upload your own files into a private
+              workspace, or start with the samples. Every figure is measured, labeled, or honestly
+              disclaimed.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link href="/operations" className="btn-ink">
