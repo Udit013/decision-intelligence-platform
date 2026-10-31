@@ -1437,6 +1437,11 @@ never deleted. The route compares `Authorization: Bearer $CRON_SECRET` in
 constant time and returns 503 if the secret isn't configured. `?dryRun=1`
 reports without deleting; `scripts/expire-workspaces.ts` does the same locally.
 
+*Deployed state (2026-10-31):* migrations `0000` and `0002` are applied to
+production, `CRON_SECRET` is set, and commit `e8ab0fb` is live. At rollout there
+were no tracked visitor workspaces (`workspace_activity` empty, demo has no row),
+so the first scheduled run has nothing to delete.
+
 **CSP** (`src/proxy.ts`, `buildCsp`). A fresh 128-bit nonce per request is
 placed in the request's CSP header (Next.js applies it to its own scripts) and
 the response header. `script-src 'self' 'nonce-…' 'strict-dynamic'` — no

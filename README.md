@@ -335,8 +335,16 @@ Deployed at [coresightiq.vercel.app](https://coresightiq.vercel.app). Framework 
 auto-detected as Next.js; `.npmrc` handles peer deps. Set `DATABASE_URL` (and
 optional `OLLAMA_*`) in the Vercel project. Every push to `main` redeploys.
 
-Set `CRON_SECRET` in the Vercel project (`vercel env add CRON_SECRET production`);
-[`vercel.json`](vercel.json) schedules the daily expiry job (free Hobby tier).
+`CRON_SECRET` is set in the Vercel production environment, and
+[`vercel.json`](vercel.json) schedules the daily expiry job at 03:23 UTC (free Hobby tier).
+
+**Deployed state (2026-10-31):** migrations `0000` (recorded no-op) and `0002` are
+applied to production (`rate_limits`, `workspace_activity`); commit `e8ab0fb` is live
+at [coresightiq.vercel.app](https://coresightiq.vercel.app). Verified live: nonce CSP
+on every response (fresh nonce per request), erase endpoint returns `429` on the 6th
+call in an hour, cross-origin writes return `403`, the cron endpoint returns `401`
+without the correct bearer, and an expiry dry run found no candidates. The first
+scheduled cron run is the next 03:23 UTC.
 
 **Release order for schema changes:** back up (`pg_dump`, or a Neon branch),
 run `npm run db:migrate` against production, then push. Migrations are written
