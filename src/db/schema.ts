@@ -298,3 +298,27 @@ export const productBacklogItems = pgTable(
     index('product_backlog_items_import_idx').on(t.importId),
   ],
 )
+
+/* ════════════════════════════════════════════════════════════════════════════
+ *  OPERATIONS HYGIENE — rate limiting and workspace expiry (migration 0002)
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+export const rateLimits = pgTable(
+  'rate_limits',
+  {
+    bucket: text('bucket').primaryKey(),
+    hits: integer('hits').notNull().default(0),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [index('rate_limits_expires_idx').on(t.expiresAt)],
+)
+
+/** One row per visitor workspace; the demo workspace intentionally has none (never expires). */
+export const workspaceActivity = pgTable(
+  'workspace_activity',
+  {
+    workspaceId: uuid('workspace_id').primaryKey(),
+    lastActiveAt: timestamp('last_active_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('workspace_activity_last_idx').on(t.lastActiveAt)],
+)

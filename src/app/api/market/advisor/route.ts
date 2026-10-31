@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server'
+import { enforce } from '@/server/ratelimit'
 import { answer, sanitizeQuestion, MAX_QUESTION_LENGTH } from '@/core/advisor'
 import { getMarketDataset } from '@/domains/market/dataset'
 import { generateMarketDecisions } from '@/domains/market/scoring'
 import { ADVISOR_PERSONA, buildMarketContext, MARKET_RULES, marketFallback, type MarketAdvisorSnapshot } from '@/domains/market/advisor'
 
 export async function POST(req: Request) {
+  const limited = await enforce(req, 'advisor')
+  if (limited) return limited
   const body = await req.json().catch(() => null)
   const question = sanitizeQuestion((body as { question?: unknown } | null)?.question)
   if (!question) {

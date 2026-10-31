@@ -8,6 +8,7 @@
  */
 import { NextResponse } from 'next/server'
 import { commitImport, previewImport } from '@/server/imports'
+import { enforce } from '@/server/ratelimit'
 import { badRequest, requireWorkspace, isUuid, notFound, serviceError, refreshWorkspace } from '../../../_lib'
 
 export const maxDuration = 60
@@ -19,6 +20,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!isUuid(id)) return notFound()
   const body = (await req.json().catch(() => null)) as { kind?: unknown; mapping?: unknown; dryRun?: unknown } | null
   if (!body || typeof body.kind !== 'string') return badRequest('Expected JSON body with "kind".')
+
+  const limited = await enforce(req, body.dryRun === true ? 'previewImport' : 'commitImport', ws)
+  if (limited) return limited
 
   try {
     if (body.dryRun === true) return NextResponse.json({ preview: await previewImport(ws, id, body.kind, body.mapping) })

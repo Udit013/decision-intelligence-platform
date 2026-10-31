@@ -10,6 +10,7 @@ import { workspaceFiles } from '@/db/schema'
 import { parseBuffer, validateUpload, detectFormat, quotaError, type FileFormat } from '@/core/workspace'
 import { GLOBAL_FILE_BYTES_CAP } from '@/core/imports/limits'
 import { sha256Hex } from '@/core/imports/keys'
+import { enforce } from '@/server/ratelimit'
 import { toDto, badRequest, dbUnavailable, workspaceUsage, requireWorkspace, isUuid, notFound, ownFile } from '../../../_lib'
 
 export const maxDuration = 30
@@ -17,6 +18,8 @@ export const maxDuration = 30
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const ws = await requireWorkspace()
   if (ws instanceof NextResponse) return ws
+  const limited = await enforce(req, 'upload', ws)
+  if (limited) return limited
   const { id } = await params
   if (!isUuid(id)) return notFound()
 

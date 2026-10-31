@@ -28,6 +28,9 @@ const data = IBM_Plex_Mono({
   display: 'swap',
 })
 
+// Nonce-based CSP (src/proxy.ts) needs every page rendered per request.
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'CoreSight IQ — Decision Intelligence Platform',
   description:

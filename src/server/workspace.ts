@@ -1,10 +1,11 @@
 import 'server-only'
-import { createHash } from 'node:crypto'
 import { cookies } from 'next/headers'
 import { and, eq, sql } from 'drizzle-orm'
 import { getDb } from '@/db'
 import { dataImports } from '@/db/schema'
 import { DEMO_WORKSPACE_ID } from '@/db/ids'
+import { workspaceIdFromToken } from './workspace-id'
+import { touchWorkspace } from './expiry'
 import {
   WORKSPACE_COOKIE,
   MODE_COOKIE,
@@ -14,12 +15,6 @@ import {
   type DomainKey,
   type DataMode,
 } from '@/core/tenancy'
-
-/** sha256(token) shaped as a v4 UUID. The raw token never reaches the database. */
-export function workspaceIdFromToken(token: string): string {
-  const h = createHash('sha256').update(token).digest('hex')
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-${((parseInt(h[16], 16) & 0x3) | 0x8).toString(16)}${h.slice(17, 20)}-${h.slice(20, 32)}`
-}
 
 /** The visitor's private workspace id, or null when no valid cookie exists. */
 export async function currentWorkspaceId(): Promise<string | null> {
@@ -63,7 +58,8 @@ export async function resolveDataSource(domain: DomainKey): Promise<DataSource> 
   let degraded = false
   if (wsId && process.env.DATABASE_URL) {
     try {
-      hasOwnData = (await liveImportCounts(wsId))[domain] > 0
+      const [counts] = await Promise.all([liveImportCounts(wsId), touchWorkspace(wsId)])
+      hasOwnData = counts[domain] > 0
     } catch {
       degraded = true
     }

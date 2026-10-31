@@ -10,6 +10,7 @@ import { workspaceFiles } from '@/db/schema'
 import { validateUpload, detectFormat, parseBuffer, quotaError, MAX_NAME_LENGTH } from '@/core/workspace'
 import { GLOBAL_FILE_BYTES_CAP } from '@/core/imports/limits'
 import { sha256Hex } from '@/core/imports/keys'
+import { enforce } from '@/server/ratelimit'
 import { toDto, badRequest, isScope, dbUnavailable, workspaceUsage, requireWorkspace } from '../_lib'
 
 export const maxDuration = 30
@@ -17,6 +18,8 @@ export const maxDuration = 30
 export async function POST(req: Request) {
   const ws = await requireWorkspace()
   if (ws instanceof NextResponse) return ws
+  const limited = await enforce(req, 'upload', ws)
+  if (limited) return limited
 
   let form: FormData
   try {

@@ -229,15 +229,34 @@ There are no accounts, so isolation and the write path are hardened instead:
   250k order lines or events, smaller caps for the rest) and deployment-wide
   caps (60 MB of uploads, 1M imported rows) keep the database inside Neon's free
   512 MB no matter how many anonymous workspaces exist.
+- **Rate limiting** — a fixed-window counter in Postgres (one upsert per
+  request, no extra service) throttles uploads, previews, commits, undo, erase,
+  workspace claim and the advisors, per workspace *and* per hashed network
+  address (so discarding the cookie doesn't reset it). Over the limit → `429`
+  with `Retry-After`. If the database is unreachable the limiter fails open so
+  the sample-data demo keeps working.
+- **Content-Security-Policy** — strict and nonce-based, set per request in
+  [`src/proxy.ts`](src/proxy.ts): scripts only from this origin or carrying the
+  request's nonce (`strict-dynamic`), no `unsafe-inline`/`unsafe-eval` in
+  production, no third-party origins, `object-src 'none'`, `frame-ancestors
+  'none'`. Inline `style=` attributes are allowed separately (they can't run
+  script). Pages render per request, which nonces require.
+- **Workspace expiry** — a workspace inactive for 90 days is deleted (files,
+  imports, rows) by a daily Vercel Cron job. Activity is recorded at most
+  hourly; a workspace is deleted only if its activity record exists and is
+  older than the threshold, re-checked inside the delete transaction. The demo
+  workspace has no record and cannot expire; data without a record is reported,
+  never deleted. The job fails closed without `CRON_SECRET`.
 - **No internal detail in responses** — database errors are logged server-side;
   clients get a generic 503.
 - **Headers** — HSTS, `X-Frame-Options: DENY`, `nosniff`, strict referrer
   policy, locked-down `Permissions-Policy`.
 - `npm audit --omit=dev` reports **0** production vulnerabilities.
 
-Known limits: no rate limiting (bounded by the caps above), no
-Content-Security-Policy yet, a lost cookie without a saved recovery link means
-a lost workspace, and inactive workspaces are not yet expired automatically.
+Known limits: rate limits are per fixed window (a burst at a window boundary
+can briefly reach twice the limit); a lost cookie without a saved recovery link
+means a lost workspace (and an inactive one is deleted after 90 days); the
+limiter trusts the platform's `x-real-ip`/`x-forwarded-for`, which Vercel sets.
 
 ---
 
@@ -253,7 +272,7 @@ imports and the Operations sample need Postgres:
 
 ```bash
 cp .env.example .env    # set DATABASE_URL — a free Neon database, or any Postgres 14+
-npm run db:migrate      # apply db/migrations (versioned SQL, one transaction each)
+npm run db:migrate      # apply db/migrations (versioned SQL, one transaction each; builds a fresh DB from scratch)
 # optional — seed the Operations sample (downloads ~45MB, prints data quality first):
 npx tsx --max-old-space-size=4096 scripts/etl-operations.ts
 ```
@@ -283,6 +302,8 @@ npx tsx scripts/db-migrate.ts --down 0001_workspaces_imports   # roll back (dele
 | Var | Required | Used by |
 |---|---|---|
 | `DATABASE_URL` | for uploads, imports, Operations sample | Neon (HTTP driver) or any Postgres (node-postgres) |
+| `CRON_SECRET` | for workspace expiry | bearer token for `/api/cron/expire-workspaces` (Vercel Cron sends it automatically); without it the job refuses to run |
+| `TEST_DATABASE_URL` | for the DB test suites | a migrated, throwaway Postgres; those suites skip without it |
 | `OLLAMA_URL` | optional | AI Advisor (default `http://localhost:11434`) |
 | `OLLAMA_MODEL` | optional | AI Advisor (default `llama3.2`) |
 
@@ -293,7 +314,8 @@ npx tsx scripts/db-migrate.ts --down 0001_workspaces_imports   # roll back (dele
 | Command | What |
 |---|---|
 | `npm run dev` / `build` / `start` | Next app |
-| `npm test` | core + domain unit tests (vitest) — 137 tests |
+| `npm test` | unit + server/route tests (vitest) — 180 tests; isolation, rate-limit and expiry suites run against `TEST_DATABASE_URL` |
+| `npx tsx scripts/expire-workspaces.ts` | inspect workspace expiry — **dry run by default**; `--apply` deletes |
 | `npm run typecheck` / `lint` | static checks |
 | `npm run db:migrate` / `db:status` | apply / list SQL migrations |
 | `npx tsx scripts/harness-demo.ts` | validation-harness failure proof |
@@ -301,8 +323,9 @@ npx tsx scripts/db-migrate.ts --down 0001_workspaces_imports   # roll back (dele
 | `npx tsx scripts/product-metrics.ts` | recompute measured Product metrics |
 | `npx tsx scripts/etl-operations.ts` | ETL the UCI sample into the sample workspace (`--force` to reload it) |
 
-CI (GitHub Actions) runs lint, typecheck, all tests, and a production build on
-every push and pull request to `main`.
+CI (GitHub Actions) spins up a throwaway Postgres, migrates it from empty,
+then runs lint, typecheck, all tests (including the DB-backed ones) and a
+production build on every push and pull request to `main`.
 
 ---
 
@@ -311,6 +334,9 @@ every push and pull request to `main`.
 Deployed at [coresightiq.vercel.app](https://coresightiq.vercel.app). Framework is
 auto-detected as Next.js; `.npmrc` handles peer deps. Set `DATABASE_URL` (and
 optional `OLLAMA_*`) in the Vercel project. Every push to `main` redeploys.
+
+Set `CRON_SECRET` in the Vercel project (`vercel env add CRON_SECRET production`);
+[`vercel.json`](vercel.json) schedules the daily expiry job (free Hobby tier).
 
 **Release order for schema changes:** back up (`pg_dump`, or a Neon branch),
 run `npm run db:migrate` against production, then push. Migrations are written

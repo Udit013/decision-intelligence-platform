@@ -1,8 +1,7 @@
 import type { NextConfig } from 'next'
 
-// Baseline security headers for every response. CSP is intentionally omitted for
-// now: Next inlines bootstrap scripts and ECharts renders to canvas, so a strict
-// CSP needs nonce plumbing — a follow-up, not a quick win.
+// Baseline security headers for every response. The Content-Security-Policy is
+// not here: it needs a fresh nonce per request, so src/proxy.ts sets it.
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'DENY' },

@@ -4,12 +4,15 @@
  */
 import { NextResponse } from 'next/server'
 import { WORKSPACE_COOKIE } from '@/core/tenancy'
+import { enforce } from '@/server/ratelimit'
 import { deleteWorkspaceData } from '@/server/imports'
 import { requireWorkspace, serviceError, refreshWorkspace } from '../data/_lib'
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
   const ws = await requireWorkspace()
   if (ws instanceof NextResponse) return ws
+  const limited = await enforce(req, 'eraseWorkspace', ws)
+  if (limited) return limited
   try {
     await deleteWorkspaceData(ws)
     refreshWorkspace(ws)

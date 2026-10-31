@@ -7,6 +7,7 @@ import { workspaceFiles } from '@/db/schema'
 import { DEMO_WORKSPACE_ID } from '@/db/ids'
 import { SCOPES, type FileScope } from '@/core/workspace'
 import { currentWorkspaceId } from '@/server/workspace'
+import { touchWorkspace } from '@/server/expiry'
 import { ImportError } from '@/server/imports'
 
 export type WorkspaceFileRow = typeof workspaceFiles.$inferSelect
@@ -53,6 +54,7 @@ export async function requireWorkspace(): Promise<string | NextResponse> {
   if (!id || id === DEMO_WORKSPACE_ID) {
     return NextResponse.json({ error: 'Your private workspace needs cookies. Enable cookies for this site and reload.' }, { status: 401 })
   }
+  await touchWorkspace(id)
   return id
 }
 

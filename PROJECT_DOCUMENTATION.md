@@ -1408,6 +1408,46 @@ transaction. Undoing twice returns `409`.
 | live rows per workspace | 250k order lines or events; smaller for the rest | fairness |
 | deployment-wide | 60 MB uploads, 1M imported rows | stay inside Neon's free 512 MB |
 
+### 8.9 Rate limits, expiry and CSP
+
+**Rate limiting** (`src/server/ratelimit.ts`, table `rate_limits`). One atomic
+`INSERT … ON CONFLICT DO UPDATE SET hits = hits + 1 RETURNING` per request
+counts two subjects in one round trip — the workspace and a SHA-256 of the
+client address (never stored raw; `x-real-ip` / first `x-forwarded-for`, which
+Vercel sets). Bucket key = `<subject>:<action>:<id>:<window index>`, so windows
+roll over without cleanup logic; stale rows are deleted by the daily job.
+Per-address limits are a multiple of the per-workspace limit so shared networks
+aren't punished, yet discarding the cookie can't escape the limit. Limits:
+upload 20/10 min, preview 120/10 min, commit 15/10 min, undo 30/10 min, erase
+5/hour, claim 20/10 min, advisor 30/min. Over the limit → `429` + `Retry-After`.
+The limiter **fails open** on database errors (and is skipped without
+`DATABASE_URL`) so the database-free demo keeps working.
+
+**Expiry** (`src/server/expiry.ts`, table `workspace_activity`,
+`/api/cron/expire-workspaces`, `vercel.json` cron `23 3 * * *`).
+`touchWorkspace` runs on every API call and page view for a workspace but only
+writes when the last write is over an hour old. A workspace is a candidate only
+if its activity row exists and is older than 90 days (the threshold is validated
+≥ 30 so a typo can't wipe active users). `deleteIfStale` removes everything for
+one workspace in a single transaction in which **every statement re-checks
+staleness**, so a workspace touched after selection survives (proved by a
+mutation-checked test). The demo workspace has no row and is refused
+explicitly; data with no activity row is reported (`untrackedWorkspaces`) and
+never deleted. The route compares `Authorization: Bearer $CRON_SECRET` in
+constant time and returns 503 if the secret isn't configured. `?dryRun=1`
+reports without deleting; `scripts/expire-workspaces.ts` does the same locally.
+
+**CSP** (`src/proxy.ts`, `buildCsp`). A fresh 128-bit nonce per request is
+placed in the request's CSP header (Next.js applies it to its own scripts) and
+the response header. `script-src 'self' 'nonce-…' 'strict-dynamic'` — no
+`unsafe-inline`, no `unsafe-eval` outside development, no third-party hosts;
+`style-src 'self' 'nonce-…'` plus `style-src-attr 'unsafe-inline'` for React and
+ECharts inline style *attributes* (which cannot run script). Because nonces
+need per-request HTML, the root layout is `force-dynamic`. Verified in a real
+browser: charts (ECharts canvas), PDF download (blob), uploads (XHR), hydration
+on a full load and client navigation produced zero violations, while injected
+inline handlers and `javascript:` URLs were blocked.
+
 ### 8.8 The Data Manager UI (`src/app/data`)
 
 `DataManager.tsx` (uploads with real XHR progress, file table), `ImportDialog.tsx`
@@ -1517,6 +1557,8 @@ object-for-object (288 objects diffed), up again. Techniques worth knowing:
 | `product_experiment_stats` | unique `(workspace_id, experiment, variant)`; `conversions ≤ users` CHECK | aggregated A/B results |
 | `product_backlog_items` | unique `(workspace_id, name_key)`; `effort > 0`, `0 ≤ confidence ≤ 1` | backlog for RICE/ICE/WSJF |
 | `operations_etl_logs` | — | legacy audit of the original CLI load (superseded by `data_imports`) |
+| `rate_limits` | PK `bucket`; index on `expires_at` | fixed-window counters (workspace + hashed address) |
+| `workspace_activity` | PK `workspace_id`; index on `last_active_at` | last-use time per visitor workspace (drives expiry; the demo workspace has no row) |
 | `schema_migrations` | PK `version` | applied migrations |
 
 The 13 empty `market_*`/`product_*` tables from the original phase were dropped
@@ -1586,6 +1628,10 @@ requests must carry an `Origin` matching the host (`403` otherwise, enforced in
 | `POST /api/workspace/claim` | `{ token }` → adopt a workspace | sets `csiq_ws` |
 | `DELETE /api/workspace` | erase the workspace, retire its cookie | `200` |
 | `GET /api/operations/health` | sample-data row counts + latency | `200` / `503` |
+| `GET /api/cron/expire-workspaces` | daily expiry job (`?dryRun=1` to report only); bearer `CRON_SECRET` | `200`, `401`, `503` if unconfigured |
+
+Rate-limited routes (upload, reprocess, import preview/commit, undo, erase,
+claim, advisors) answer `429` with a `Retry-After` header when exceeded.
 | `POST /api/{operations,market,product}/advisor` | `{ question }` → grounded answer for the data being viewed | `400` invalid question |
 
 **Example — dry run**
@@ -1756,10 +1802,9 @@ because ECharts ships in a form that benefits from it), and a `headers()`
 function that attaches baseline HTTP security headers
 (`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
 `Strict-Transport-Security`, `Referrer-Policy`, `Permissions-Policy`) to
-*every* response. A code comment explicitly notes a stricter Content-Security-
-Policy was deliberately deferred as future work, not forgotten — it would
-require nonce-based script tagging that conflicts with how Next.js currently
-inlines its own bootstrap script.
+*every* response. The Content-Security-Policy is *not* static: it needs a fresh
+nonce per request, so it is generated in `src/proxy.ts`
+([§8.9](#89-rate-limits-expiry-and-csp)).
 
 ### `eslint.config.mjs`
 
@@ -2161,10 +2206,12 @@ stale data to expire naturally.
 **Simple:** a checkpoint every request passes before reaching a page.
 
 **Technical:** in Next.js 16 middleware is called **proxy** (`src/proxy.ts`).
-This app uses it for two things: issuing the anonymous workspace cookie on a
-first visit, and rejecting state-changing `/api` requests whose `Origin`
-doesn't match the host (CSRF defense, including for the route that *sets* the
-workspace cookie). It does no database work; the docs warn proxy is not for
+This app uses it for three things: issuing the anonymous workspace cookie on a
+first visit (replacing malformed ones), rejecting state-changing `/api`
+requests whose `Origin` doesn't match the host (CSRF defense, including for the
+route that *sets* the workspace cookie), and stamping a per-request nonce
+Content-Security-Policy ([§8.9](#89-rate-limits-expiry-and-csp)). Cron requests
+bypass it. It does no database work; the docs warn proxy is not for
 slow data fetching.
 
 ### 17.13 Hydration, revisited with an analogy
@@ -2238,49 +2285,27 @@ lists but genuinely absent here:
 
 ## 18. Testing Strategy
 
-**137 tests across 15 files**, run with `npm test` (Vitest), covering
-`src/core/**` and `src/domains/**` exclusively — deliberately **not** UI
-components, per the scoping decision in `vitest.config.ts` discussed in
-[§15](#15-every-configuration-file-explained).
+**180 tests across 22 files**, run with `npm test` (Vitest).
 
-**What's tested and why it's the right scope:** every `/core` module has its
-own `index.test.ts` asserting the pure-math behavior directly — e.g.
-`forecast/index.test.ts` checks that the reported confidence-interval band
-widens with the forecast horizon, and that a forecast against a series with a
-sudden regime shift (a value that jumps to a very different level) is *not*
-suspiciously well-predicted (proving the nested holdout split genuinely
-prevents the model from "seeing" the shift in advance). `scoring/index.test.ts`
-checks `scoreAndClassify`'s composite score correctly matches a
-hand-calculated expected value for a known input. Domain-level tests
-(`operations.test.ts`, `market.test.ts`, `product.test.ts`) assert
-domain-specific invariants: the exact 120-market count (not 121),
-that D0 retention is always 100% and never increases with time, and that a
-low-confidence forecast signal is correctly outranked by higher-confidence
-customer signals in the synthesized decision list.
+| Layer | Examples | Needs a database |
+|---|---|---|
+| Pure core/domain logic | forecasting, scoring (incl. missing criteria), stats, import parsing/validation/mapping, market model, product insights | no |
+| Capability cookie & identity | `isWorkspaceToken` accepts exactly 43 base64url chars and rejects every other shape; `workspaceIdFromToken` deterministic, v4-shaped, never the demo id | no |
+| Proxy | cookie issued once per visitor (httpOnly, Lax), malformed cookie replaced, CSRF (missing/cross-origin/malformed Origin → 403), CSP (nonce per request, no `unsafe-inline`/`unsafe-eval`, no third-party origins) | no |
+| Rate limiting | windows, limits per workspace/action, per-address limit survives cookie rotation, reset next window, no raw IPs stored | yes |
+| **Workspace isolation (real route handlers)** | no/invalid cookie → 401; another workspace gets 404 for list/read/rename/delete/reprocess/import/undo; forged `workspaceId` body fields ignored; identical file in two workspaces is not a cross-workspace duplicate | yes |
+| Expiry | threshold floor, 89 vs 91 days, dry run deletes nothing, stale deleted / fresh kept / untracked kept, touched-after-selection survives, demo never touched, hourly touch throttle | yes |
+| Cron endpoint | 503 unconfigured; 401 for missing/wrong/same-length credentials; dry run vs real run | partly |
 
-**Example test — proving the nested-holdout split isn't cheating**
-(`src/core/forecast/index.test.ts`, quoted exactly):
-```ts
-it('backtest is unbiased: a regime shift in the holdout is NOT fitted away', () => {
-  // Train is cleanly linear (selection will favor a trend model); the holdout
-  // drops to a flat low level. An unbiased backtest cannot have "cheated" by
-  // picking the model that happens to fit the holdout, so the error must be large.
-  const train = Array.from({ length: 50 }, (_, i) => 100 + 5 * i) // 100..345
-  const holdout = Array.from({ length: 10 }, () => 40) // sudden crash
-  const values = [...train, ...holdout]
-  const res = forecast(values, dailyDates(values.length), 'day', 10)
-  expect(res.backtest).not.toBeNull()
-  expect(res.backtest!.mape).toBeGreaterThan(50) // trend vs flat 40 ⇒ massive miss
-})
-```
+DB-backed suites run against `TEST_DATABASE_URL` and skip without it; CI
+provides a throwaway Postgres service and builds it from empty with
+`npm run db:migrate`. They are serial and clean up their own rows.
+**Mutation-checked:** removing the workspace filter from `ownFile()` fails two
+isolation tests, and dropping the staleness re-check from the delete fails the
+race test — the suites fail when the guarantees are broken.
 
-**Why UI is excluded from automated tests:** rendering, styling, and
-interaction correctness for a small, low-logic-density component library is
-validated more efficiently by running the app and looking at it (documented
-manual verification, plus TypeScript catching prop-shape mismatches at
-compile time) than by writing brittle snapshot/DOM tests that would need
-constant maintenance as the design system evolved through several redesign
-passes documented in this project's git history.
+UI components remain covered by the production build, typechecking and manual
+browser verification rather than snapshot tests.
 
 ---
 
@@ -2352,11 +2377,17 @@ versioned SQL migrations (rehearsed on a full production restore, with a
 verified down migration). That closed the two items previously listed first:
 per-file undo/de-dup and isolation of visitors' data.
 
-**Still open, by priority:** (1) rate limiting on uploads/imports; (2) expiry
-of inactive workspaces (a daily Vercel cron would do it at $0); (3) a
-nonce-based Content-Security-Policy; (4) automated integration tests for the
-data routes against a disposable database (they were exercised end to end
-manually for this release).
+**Then (hardening release):** Postgres-backed rate limiting, 90-day workspace
+expiry via Vercel Cron, a nonce-based Content-Security-Policy, and an automated
+suite for isolation, capability-cookie validation, rate limiting, expiry and the
+cron endpoint (see [§18](#18-testing-strategy), [§8.9](#89-rate-limits-expiry-and-csp)).
+It also fixed a latent bug: migration 0001 assumed the original tables existed,
+so a fresh database couldn't be migrated; `0000_baseline` now builds them
+(a recorded no-op on production).
+
+**Still open:** a Redis-style sliding window (fixed windows allow a 2× burst at
+boundaries); expiry notifications (there is no email, by design); and CSP
+`report-to` collection (violations are visible only in the browser console).
 
 ---
 
@@ -2594,12 +2625,12 @@ single-domain product, the `/core` vs `/domains` split would be premature
 abstraction; here it's the deliberate subject of the project.
 
 **"What would you build next if you had another week?"**
-Three honest candidates, each already implicitly flagged in the codebase
-itself: (1) tag invoice lines with their source workspace file so ingests can
-be de-duplicated and undone per file ([§17.15](#1715-database-transactions)); (2) let Market and Product persist
-user-uploaded data the way Operations now does, using their already-defined
-but currently-unused database tables; (3) add a strict Content-Security-
-Policy, explicitly deferred in `next.config.ts`'s own comments.
+Honest candidates now that imports, isolation, rate limiting, expiry and CSP
+exist: (1) CSP violation reporting (`report-to`) so policy breaks are seen in
+production rather than only in a browser console; (2) a sliding-window limiter
+if the fixed window's boundary burst ever matters; (3) optional accounts so a
+workspace can survive a lost cookie — additive, since everything already
+receives a workspace id ([§12](#12-identity-private-workspaces-instead-of-accounts)).
 
 **"How do you know the validation harness isn't just rigged to look
 rigorous?"**
